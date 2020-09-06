@@ -12,7 +12,7 @@ import truncate  from './vec2-truncate.js'
 function createSteeringComponent (options={}) {
     return {
         // common vehicle steering parameters
-        steeringForce: vec2.create(),
+        steeringForce: vec2.create(),  // MUTABLE
         maxForce: options.maxForce || 60,
 
         // collision avoidance
@@ -25,7 +25,7 @@ function createSteeringComponent (options={}) {
         // wander
         wanderDistance: 10,
         wanderRadius: 5,
-        wanderAngle: 0,
+        wanderAngle: 0,      // MUTABLE
         wanderRange: 1,
 
         // arrive
@@ -177,7 +177,7 @@ function steerForFlock (boid, boids) {
             vec2.add(averagePosition, averagePosition, b.aabb.position)
 
             const tooClose = vec2.distance(boid.aabb.position, b.aabb.position) < boid.steering.minDistance
-            if (tooClose
+            if (tooClose)
                 steerForFlee(boid, b.aabb.position)
             inSightCount++
         }
@@ -242,13 +242,13 @@ function steerForQueueing (boid, boids) {
     vec2.scale(brake, brake, 0.8)
 
     const v = Pool.malloc()
-    vec2.negate(v, rigidBody.velocity)
+    vec2.negate(v, boid.rigidBody.velocity)
 
     vec2.add(brake, brake, v)
-    vec2.add(brake, brake, flock(boids))
+    vec2.add(brake, brake, steerForFlock(boid, boids))
 
     if (vec2.distance(object.aabb.position, neighbor.aabb.position) <= boid.steering.maxQueueRadius)
-      vec2.scale(rigidBody.velocity, rigidBody.velocity, 0.3)
+      vec2.scale(boid.rigidBody.velocity, boid.rigidBody.velocity, 0.3)
 
     vec2.add(boid.steering.steeringForce, boid.steeering.steeringForce, brake)
     Pool.free(v)
@@ -307,16 +307,15 @@ function _getNeighborAhead (boid, neighbors) {
 
     const ahead = vec2.add(Pool.malloc(), boid.aabb.position, qa)
 
-    for (const neighbor of neighbors) {
+    const result = neighbors.find((neighbor) => {
         const d = vec2.distance(ahead, neighbor.aabb.position)
-        if ((neighbour !== boid) && (d <= boid.steering.maxQueueRadius)) {
-            Pool.free(ahead)
-            Pool.free(qa)
+        if ((neighbour !== boid) && (d <= boid.steering.maxQueueRadius))
             return neighbor
-        }
-    }
+    })
+
     Pool.free(ahead)
     Pool.free(qa)
+    return result
 }
 
 
