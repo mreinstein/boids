@@ -9,6 +9,8 @@ I had trouble finding steering behaviors with the following properties:
 
 * functional and data oriented
 * doesn't create memory garbage
+* re-uses a robust vector module rather than re-inventing the wheel
+
 
 So here we are.
 
