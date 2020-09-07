@@ -68,9 +68,9 @@ function steerForPursuit (pursuerBoid, targetBoid) {
 
     vec2.add(predictedTarget, targetBoid.aabb.position, scaledVelocity)
 
-    //steerForSeek(pursuerBoid, predictedTarget)
+    steerForSeek(pursuerBoid, predictedTarget)
 
-    steerForArrival(pursuerBoid, predictedTarget)
+    //steerForArrival(pursuerBoid, predictedTarget)
 
     Pool.free(scaledVelocity)
     Pool.free(predictedTarget)
