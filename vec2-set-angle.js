@@ -1,4 +1,4 @@
-import { vec2 } from './deps.js'
+import * as vec2 from 'https://cdn.jsdelivr.net/npm/gl-matrix@3.3.0/esm/vec2.js'
 
 
 export default function setAngle (inp, angle) {
