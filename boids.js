@@ -52,21 +52,21 @@ function createSteeringComponent (options={}) {
           height
       rigidBody
          maxVelocity
-         velocity 
+         velocity
 */
 
 
 // look at velocity of target boid and try to predict where it's going with the aim of catching it
-function steerForPursuit (pursuerBoid, targetBoid) {
+function steerForPursuit (pursuerBoid, targetPosition, targetVelocity) {
     const maxSpeedSq = pursuerBoid.rigidBody.maxVelocity * pursuerBoid.rigidBody.maxVelocity
-    const lookAheadTime = vec2.squaredDistance(pursuerBoid.aabb.position, targetBoid.aabb.position) / maxSpeedSq
+    const lookAheadTime = vec2.squaredDistance(pursuerBoid.aabb.position, targetPosition) / maxSpeedSq
 
     const scaledVelocity = Pool.malloc()
-    vec2.scale(scaledVelocity, targetBoid.rigidBody.velocity, lookAheadTime)
+    vec2.scale(scaledVelocity, targetVelocity, lookAheadTime)
 
     const predictedTarget = Pool.malloc()
 
-    vec2.add(predictedTarget, targetBoid.aabb.position, scaledVelocity)
+    vec2.add(predictedTarget, targetPosition, scaledVelocity)
 
     steerForSeek(pursuerBoid, predictedTarget)
 
@@ -186,7 +186,7 @@ function steerForFlock (boid, boids) {
     if (inSightCount > 0) {
         vec2.scale(averageVelocity, averageVelocity, 1/inSightCount)
         vec2.scale(averagePosition, averagePosition, 1/inSightCount)
-     
+
         steerForSeek(boid, averagePosition)
 
         const delta = Pool.malloc()
