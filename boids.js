@@ -1,6 +1,5 @@
 import { Pool, setLength, vec2 } from './deps.js'
 import setAngle  from './vec2-set-angle.js'
-import truncate  from './vec2-truncate.js'
 
 
 // much of this was inspired by code from Ian
