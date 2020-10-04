@@ -1,5 +1,8 @@
-import { Pool, setLength, vec2 } from './deps.js'
-import setAngle  from './vec2-set-angle.js'
+import Pool      from 'https://cdn.jsdelivr.net/gh/mreinstein/vec2-gap/pool.js'
+import * as vec2 from 'https://cdn.jsdelivr.net/npm/gl-matrix@3/esm/vec2.js'
+
+
+const ORIGIN = vec2.fromValues(0, 0)
 
 
 // much of this was inspired by code from Ian
@@ -118,9 +121,9 @@ function steerForWander (boid) {
     vec2.normalize(center, boid.rigidBody.velocity)
     vec2.scale(center, center, boid.steering.wanderDistance)
 
-    const offset = Pool.malloc()
-    setLength(offset, boid.steering.wanderRadius)
-    setAngle(offset, boid.steering.wanderAngle)
+    const offset = Pool.malloc(boid.steering.wanderRadius, 0)
+    vec2.rotate(offset, offset, ORIGIN, boid.steering.wanderAngle)
+
     boid.steering.wanderAngle += Math.random() * boid.steering.wanderRange - boid.steering.wanderRange * 0.5
 
     vec2.add(center, center, offset)
