@@ -96,6 +96,8 @@ function steerForArrival (boid, targetVec) {
     const force = vec2.subtract(Pool.malloc(), desiredVelocity, boid.rigidBody.velocity)
 
     vec2.add(boid.steering.steeringForce, boid.steering.steeringForce, force)
+
+    Pool.free(desiredVelocity)
     Pool.free(force)
 }
 
@@ -111,6 +113,7 @@ function steerForSeek (boid, targetVec) {
     vec2.subtract(force, desiredVelocity, boid.rigidBody.velocity)
     vec2.add(boid.steering.steeringForce, boid.steering.steeringForce, force)
 
+    Pool.free(desiredVelocity)
     Pool.free(force)
 }
 
@@ -163,6 +166,8 @@ function steerForFlee (fleeingBoid, targetVec) {
     const force = Pool.malloc()
     vec2.subtract(force, desiredVelocity, fleeingBoid.rigidBody.velocity)
     vec2.subtract(fleeingBoid.steering.steeringForce, fleeingBoid.steering.steeringForce, force)
+
+    Pool.free(desiredVelocity)
     Pool.free(force)
 }
 
@@ -228,6 +233,7 @@ function steerForFollowLeader (boid, leader, boids) {
     // Add separation force
     steerForFlock(boid, boids)
 
+    Pool.free(ahead)
     Pool.free(tv)
     Pool.free(behind)
 }
@@ -253,6 +259,7 @@ function steerForQueueing (boid, boids) {
       vec2.scale(boid.rigidBody.velocity, boid.rigidBody.velocity, 0.3)
 
     vec2.add(boid.steering.steeringForce, boid.steeering.steeringForce, brake)
+
     Pool.free(v)
     Pool.free(brake)
 }
@@ -269,8 +276,6 @@ function steerForCollisionAvoidance (boid, boids) {
 
     const mostThreatening = _findMostThreateningObstacle(boid, boids, ahead, ahead2)
 
-    Pool.free(ahead2)
-
     if (mostThreatening) {
         // obstacle, avoidance force needed
         const avoidance = vec2.subtract(Pool.malloc(), ahead, mostThreatening.aabb.position)
@@ -278,7 +283,9 @@ function steerForCollisionAvoidance (boid, boids) {
         vec2.scaleAndAdd(boid.steering.steeringForce, boid.steering.steeringForce, avoidance, boid.steering.maxForce)
         Pool.free(avoidance)
     }
+
     Pool.free(ahead)
+    Pool.free(ahead2)
 }
 
 
@@ -331,6 +338,7 @@ function _inSight (lookingBoid, boid) {
     const difference = vec2.subtract(Pool.malloc(), boid.aabb.position, lookingBoid.aabb.position)
 
     const dotProd = vec2.dot(difference, heading)
+
     Pool.free(heading)
     Pool.free(difference)
 
