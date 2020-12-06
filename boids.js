@@ -1,6 +1,10 @@
+import Alea      from 'https://cdn.skypack.dev/alea'
 import Pool      from 'https://cdn.jsdelivr.net/gh/mreinstein/vec2-gap/pool.js'
 import * as vec2 from 'https://cdn.jsdelivr.net/npm/gl-matrix@3/esm/vec2.js'
 
+
+const defaultSeed = Math.random()
+const defaultRng = new Alea(defaultSeed)
 
 const ORIGIN = vec2.fromValues(0, 0)
 
@@ -119,7 +123,7 @@ function steerForSeek (boid, targetVec) {
 
 
 // wander around, changing angle by a limited amount each tick
-function steerForWander (boid) {
+function steerForWander (boid, random=defaultRng) {
     const center = Pool.malloc()
     vec2.normalize(center, boid.rigidBody.velocity)
     vec2.scale(center, center, boid.steering.wanderDistance)
@@ -127,7 +131,7 @@ function steerForWander (boid) {
     const offset = Pool.malloc(boid.steering.wanderRadius, 0)
     vec2.rotate(offset, offset, ORIGIN, boid.steering.wanderAngle)
 
-    boid.steering.wanderAngle += Math.random() * boid.steering.wanderRange - boid.steering.wanderRange * 0.5
+    boid.steering.wanderAngle += random() * boid.steering.wanderRange - boid.steering.wanderRange * 0.5
 
     vec2.add(center, center, offset)
     vec2.add(boid.steering.steeringForce, boid.steering.steeringForce, center)
