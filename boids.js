@@ -41,6 +41,10 @@ function createSteeringComponent (options={}) {
         leaderBehindDistance: 50,
         leaderSightRadius: 120,
 
+        // path follow
+        pathIndex: 0,
+        pathThreshold: 20,
+
         // queueing
         maxQueueAhead: 40,
         maxQueueRadius: 20,
@@ -243,6 +247,33 @@ function steerForFollowLeader (boid, leader, boids) {
 }
 
 
+// follow a path made up of an array or vectors
+function steerForFollowPath (boid, path, loop=false) {
+    
+    const wayPoint = path[boid.steering.pathIndex]
+    if (!wayPoint) {
+        boid.steering.pathIndex = 0
+        return
+    }
+
+    const pathThresholdSq = boid.steering.pathThreshold * boid.steering.pathThreshold
+
+    if (vec2.squaredDistance(boid.transform.position, wayPoint) < pathThresholdSq) {
+        if (boid.steering.pathIndex >= path.length - 1) {
+            if (loop)
+                boid.steering.pathIndex = 0
+        } else {
+            boid.steering.pathIndex++
+        }
+    }
+
+    if (boid.steering.pathIndex >= path.length - 1 && !loop)
+        steerForArrival(boid, wayPoint)
+    else
+        steerForSeek(boid, wayPoint) 
+}
+
+
 // http://gamedevelopment.tutsplus.com/tutorials/understanding-steering-behaviors-queue--gamedev-14365
 function steerForQueueing (boid, boids) {
     const neighbor = _getNeighborAhead(boid, boids)
@@ -358,6 +389,6 @@ function _lineIntersectsCircle (ahead, ahead2, center, radius) {
 
 export default {
     createSteeringComponent,
-    steerForArrival, steerForEvasion, steerForFlee, steerForFlock, steerForFollowLeader,
+    steerForArrival, steerForEvasion, steerForFlee, steerForFlock, steerForFollowLeader, steerForFollowPath,
     steerForPursuit, steerForQueueing, steerForSeek, steerForWander, steerForCollisionAvoidance
 }
