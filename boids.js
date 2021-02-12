@@ -43,7 +43,7 @@ function createSteeringComponent (options={}) {
 
         // path follow
         pathIndex: 0,
-        pathThreshold: 20,
+        pathThreshold: (options.pathThreshold === undefined) ? 20 : options.pathThreshold,
 
         // queueing
         maxQueueAhead: 40,
