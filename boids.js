@@ -88,12 +88,12 @@ function steerForPursuit (pursuerBoid, targetPosition, targetVelocity) {
 
 
 // seek until within arriveThreshold
-function steerForArrival (boid, targetVec) {
-    const desiredVelocity = vec2.subtract(Pool.malloc(), targetVec, boid.aabb.position)
+function steerForArrival (boid, target) {
+    const desiredVelocity = vec2.subtract(Pool.malloc(), target, boid.aabb.position)
     vec2.normalize(desiredVelocity, desiredVelocity)
 
     const arriveThresholdSq = boid.steering.arriveThreshold * boid.steering.arriveThreshold
-    const distanceSq = vec2.squaredDistance(boid.aabb.position, targetVec)
+    const distanceSq = vec2.squaredDistance(boid.aabb.position, target)
     if (distanceSq > arriveThresholdSq) {
         vec2.scale(desiredVelocity, desiredVelocity, boid.rigidBody.maxVelocity)
     } else {
@@ -110,9 +110,9 @@ function steerForArrival (boid, targetVec) {
 }
 
 
-// steer torwards targetVec
-function steerForSeek (boid, targetVec) {
-    const desiredVelocity = vec2.subtract(Pool.malloc(), targetVec, boid.aabb.position)
+// steer torwards target
+function steerForSeek (boid, target) {
+    const desiredVelocity = vec2.subtract(Pool.malloc(), target, boid.aabb.position)
     vec2.normalize(desiredVelocity, desiredVelocity)
 
     vec2.scale(desiredVelocity, desiredVelocity, boid.rigidBody.maxVelocity)
@@ -146,18 +146,18 @@ function steerForWander (boid, random=defaultRng) {
 
 
 // look at velocity of boid and try to predict where it's going
-// @param Object targetBoid the boid to evade
-function steerForEvasion (evadingBoid, targetBoid) {
+// @param Object menaceBoid the boid to evade
+function steerForEvasion (evadingBoid, menaceBoid) {
     const maxSpeedSq = evadingBoid.rigidBody.maxVelocity * evadingBoid.rigidBody.maxVelocity
-    const lookAheadTime = vec2.squaredDistance(evadingBoid.aabb.position, targetBoid.aabb.position) / maxSpeedSq
+    const lookAheadTime = vec2.squaredDistance(evadingBoid.aabb.position, menaceBoid.aabb.position) / maxSpeedSq
 
     const scaledVelocity = Pool.malloc()
-    vec2.scale(scaledVelocity, targetBoid.rigidBody.velocity, lookAheadTime)
+    vec2.scale(scaledVelocity, menaceBoid.rigidBody.velocity, lookAheadTime)
 
     const predictedTarget = Pool.malloc()
-    vec2.scale(predictedTarget, targetBoid.aabb.position, scaledVelocity)
+    vec2.scale(predictedTarget, menaceBoid.aabb.position, scaledVelocity)
 
-    steerFoFlee(evadingBoid, predictedTarget)
+    steerForFlee(evadingBoid, predictedTarget)
 
     Pool.free(scaledVelocity)
     Pool.free(predictedTarget)
