@@ -1,0 +1,127 @@
+<!doctype html>
+<html>
+<head>
+    <title>conePointOverlap function</title>
+    <meta name=theme-color content=#303F9F><meta name=viewport content="width=device-width,minimum-scale=1">
+    <style>
+        body {
+          font-family: monospace;
+          
+          text-align: center;
+          padding: 60px 0px;
+        }
+
+        canvas {
+            padding: 0px;
+            border:  1px solid #cacaca;
+            background-color: black;
+        }
+
+        p {
+            text-align: left;
+        }
+
+        section {
+            margin:  0px auto;
+            width:  480px;
+        }
+
+    </style>
+</head>
+<body>
+
+<h1> conePointOverlap Function </h1>
+<canvas width="400" height="240"></canvas>
+<section>
+<p>The grey arc is the cone</p>
+<p>hovering over the canvas will show a colored rectangle. It will be green when inside the cone, red otherwise.</p>
+</section>
+
+<script type="module">
+import { vec2 }         from 'https://cdn.skypack.dev/pin/gl-matrix@v3.4.3-OSmwlRYK5GW1unkuAQkN/mode=imports,min/optimized/gl-matrix.js'
+import dat              from 'https://cdn.skypack.dev/dat.gui?min'
+import toRadians        from 'https://cdn.jsdelivr.net/gh/mreinstein/math-gap/src/to-radians.js'
+import conePointOverlap from 'https://cdn.jsdelivr.net/gh/mreinstein/collision-2d@a71f5e795c37d6ad501816c72e9e6edd0c5084c4/src/cone-point-overlap.js'
+
+
+function draw () {
+    context.clearRect(0, 0, canvas.width, canvas.height)
+
+    const startAngle = Math.atan2(model.basis[1], model.basis[0])
+
+    context.fillStyle = 'rgba(255, 255, 255, 0.1)'
+    context.strokeStyle = '#ccc'
+    context.setLineDash([2, 2])
+
+    context.beginPath()
+    context.moveTo(model.origin[0], model.origin[1])
+    context.arc(model.origin[0], model.origin[1], model.maxDistance, startAngle-toRadians(model.coneFieldOfView/2), startAngle+toRadians(model.coneFieldOfView/2), false)
+    context.fill()
+
+    if (model.minDistance > 0) {
+        context.fillStyle = 'black'
+        //context.moveTo(model.origin[0], model.origin[1])
+        context.beginPath()
+        context.arc(model.origin[0], model.origin[1], model.minDistance, 0, Math.PI*2, false)
+        context.fill()
+    }
+
+    const coneFieldOfView = toRadians(model.coneFieldOfView)
+    const pc = conePointOverlap(model.origin, startAngle, model.coneFieldOfView, model.minDistance, model.maxDistance, source) ? '#0f0' : '#f00'
+    
+    context.fillStyle = pc
+    context.fillRect(source[0]-2, source[1]-2, 4, 4)
+
+    context.setLineDash([ ])
+}
+
+
+const canvas = document.querySelector('canvas')
+const context = canvas.getContext('2d')
+
+let source = vec2.create(), limited = vec2.create()
+
+const model = {
+    origin: [ canvas.width/2, canvas.height/2 ],
+    coneFieldOfView: 90,
+    minDistance: 10,
+    maxDistance: 50,
+    basis: [ 1, 0 ]
+}
+
+const gui = new dat.GUI()
+
+gui.add(model, 'minDistance', 0, 200).onChange(function (e) {
+    model.minDistance = e
+    if (model.maxDistance < model.minDistance)
+        model.maxDistance = model.minDistance
+    draw()
+})
+
+gui.add(model, 'maxDistance', 1, 200).onChange(function (e) {
+    model.maxDistance = e
+    draw()
+})
+
+gui.add(model, 'coneFieldOfView', 0, 360).onChange(function (e) {
+    draw()
+})
+
+canvas.addEventListener('click', function (ev) {
+    const dx = ev.offsetX - model.origin[0]
+    const dy = ev.offsetY - model.origin[1]
+    vec2.normalize(model.basis, [ dx, dy ]) 
+    draw()
+})
+
+canvas.addEventListener('mousemove', function (ev) {
+    vec2.set(source, ev.offsetX, ev.offsetY)
+    draw()
+})
+
+draw()
+
+</script>
+
+</body>
+</html>

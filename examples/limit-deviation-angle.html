@@ -1,0 +1,133 @@
+<!doctype html>
+<html>
+<head>
+    <title>limitDeviationAngle Function</title>
+    <meta name=theme-color content=#303F9F><meta name=viewport content="width=device-width,minimum-scale=1">
+    <style>
+        body {
+          font-family: monospace;
+          
+          text-align: center;
+          padding: 60px 0px;
+        }
+
+        canvas {
+            padding: 0px;
+            border:  1px solid #cacaca;
+            background-color: black;
+        }
+
+        p {
+            text-align: left;
+        }
+
+        section {
+            margin:  0px auto;
+            width:  480px;
+        }
+
+    </style>
+</head>
+<body>
+
+<h1> limitDeviationAngle Function </h1>
+<canvas width="400" height="240"></canvas>
+<section>
+<p>The white line is the basis vector (center line of the cone.) Click on the canvas to update it's location</p>
+<p>The dashed grey line is the extent of the cone defined by the basis vector and cone angle</p>
+<p>The green line means that the source vector is not limited/clamped</p>
+<p>The yellow line means that the source vector is limited and couldn't be reached.</p>
+<p>The red line is what the source vector was limited to</p>
+</section>
+
+<script type="module">
+import { vec2 }            from 'https://cdn.skypack.dev/pin/gl-matrix@v3.4.3-OSmwlRYK5GW1unkuAQkN/mode=imports,min/optimized/gl-matrix.js'
+import dat                 from 'https://cdn.skypack.dev/dat.gui?min'
+import limitDeviationAngle from '../limit-deviation-angle.js'
+import toRadians           from 'https://cdn.jsdelivr.net/gh/mreinstein/math-gap/src/to-radians.js'
+
+
+function draw () {
+    context.clearRect(0, 0, canvas.width, canvas.height)
+
+    const startAngle = Math.atan2(model.basis[1], model.basis[0])
+
+    context.strokeStyle = '#ccc'
+    context.setLineDash([2, 2])
+    context.beginPath()
+    context.arc(model.origin[0], model.origin[1], 50, startAngle-toRadians(model.coneAngle/2), startAngle+toRadians(model.coneAngle/2))
+    context.stroke()
+    context.setLineDash([ ])
+
+    // basis
+    context.strokeStyle = 'white'
+    context.beginPath()
+    context.moveTo(model.origin[0], model.origin[1] + 0.5)
+    context.lineTo(model.origin[0]+model.basis[0]*50, model.origin[1] + 0.5 +model.basis[1]*50)
+    context.closePath()
+    context.stroke()
+
+    context.strokeStyle = 'red'
+    context.beginPath()
+    context.moveTo(model.origin[0], model.origin[1] + 0.5)
+    //context.moveTo(0, 0)
+    context.lineTo(model.origin[0] + limited[0], model.origin[1] + 0.5 + limited[1])
+    context.closePath()
+    context.stroke()
+
+    context.strokeStyle = (vec2.angle(source, limited) > 0.000001) ? 'yellow' : '#0f0'
+    context.beginPath()
+    context.moveTo(model.origin[0], model.origin[1] + 0.5)
+    context.lineTo(model.origin[0] + source[0], model.origin[1] + source[1])
+    context.closePath()
+    context.stroke()
+}
+
+
+const canvas = document.querySelector('canvas')
+const context = canvas.getContext('2d')
+
+let source = vec2.create(), limited = vec2.create()
+
+const model = {
+    origin: [ canvas.width/2, canvas.height/2 ],
+    insideOrOutside: true,  // true means "must be inside", false means "must be outside"
+    coneAngle: 90,
+    cosineOfConeAngle: Math.cos(toRadians(45)), // 0.5,
+    basis: [ 1, 0 ]
+}
+
+const gui = new dat.GUI()
+gui.add(model, 'insideOrOutside')
+gui.add(model, 'coneAngle', 0, 360).onChange(function (e) {
+    model.cosineOfConeAngle = Math.cos(toRadians(e/2))
+    limitDeviationAngle(limited, model.insideOrOutside, source, model.cosineOfConeAngle, model.basis)
+    draw()
+})
+
+canvas.addEventListener('click', function (ev) {
+    const dx = ev.offsetX - model.origin[0]
+    const dy = ev.offsetY - model.origin[1]
+
+    vec2.normalize(model.basis, [ dx, dy ]) 
+
+    limitDeviationAngle(limited, model.insideOrOutside, source, model.cosineOfConeAngle, model.basis)
+    draw()
+})
+
+canvas.addEventListener('mousemove', function (ev) {
+    const dx = ev.offsetX - model.origin[0]
+    const dy = ev.offsetY - model.origin[1]
+
+    vec2.set(source, dx, dy)
+    
+    limitDeviationAngle(limited, model.insideOrOutside, source, model.cosineOfConeAngle, model.basis)
+    draw()
+})
+
+draw()
+
+</script>
+
+</body>
+</html>

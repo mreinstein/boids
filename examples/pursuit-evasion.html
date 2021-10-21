@@ -1,0 +1,190 @@
+<!doctype html>
+<html>
+<head>
+    <title>Boids Pursuit + Evasion Example</title>
+    <meta name=theme-color content=#303F9F><meta name=viewport content="width=device-width,minimum-scale=1">
+    <style>
+        body {
+          font-family: monospace;
+          background-color: white;
+          text-align: center;
+          padding: 60px 0px;
+        }
+
+        canvas {
+            padding: 0px;
+            border:  1px solid #cacaca;
+        }
+
+    </style>
+</head>
+<body>
+
+<h1>Pursuit + Evasion</h1>
+<canvas width="400" height="240"></canvas>
+
+<script type="module">
+import Boids    from '../boids.js'
+import { vec2 } from 'https://cdn.skypack.dev/pin/gl-matrix@v3.4.3-OSmwlRYK5GW1unkuAQkN/mode=imports,min/optimized/gl-matrix.js'
+
+
+function createBoid (x, y) {
+    const transform = {
+        position: [ x, y ],
+        rotation: 0
+    }
+
+    return {
+        aabb: {
+            width: 10,
+            height: 15,
+            position: transform.position
+        },
+
+        rigidBody: {
+            maxSpeed: 5,             // maximum speed vehicle is allowed to move in forward direction
+            velocity: [ 0, 0 ],
+            mass: 1,                   // mass (defaults to 1 so acceleration=force)
+
+            smoothedAcceleration: [ 0, 0 ]
+        },
+
+        steering: Boids.createSteeringComponent({ maxForce: 1 }),
+
+        transform
+    }
+}
+
+
+function drawBoid (boid, context, boidColor='#333') {
+    
+    context.save()
+
+    const halfWidth = boid.aabb.width / 2
+    const halfHeight = boid.aabb.height / 2
+    const translateX = boid.aabb.position[0]
+    const translateY = boid.aabb.position[1]
+
+    // handle rotation
+    context.translate(translateX, translateY)
+
+    context.rotate(boid.transform.rotation)
+
+    //context.translate(-halfWidth, -halfHeight)
+
+    context.fillStyle = boidColor
+
+    context.beginPath()
+
+    context.moveTo(halfWidth, 0)
+    context.lineTo(-halfWidth, -halfHeight*0.6)
+    context.lineTo(-halfWidth, halfHeight*0.6)
+    context.lineTo(halfWidth, 0)
+
+    context.closePath()
+    context.fill()
+
+    context.restore()
+}
+
+
+function drawTarget (target, context) {
+    if (!target)
+        return
+
+    context.strokeStyle = 'deeppink'
+    context.lineWidth = 1
+    const radius = 6
+
+    context.beginPath()
+    context.arc(target[0], target[1], radius, 0, 2 * Math.PI, true)
+    context.closePath()
+    context.stroke()
+
+    context.strokeStyle = 'dodgerblue'
+    context.beginPath()
+    context.moveTo(target[0] + 0.5, target[1]-12)
+    context.lineTo(target[0] + 0.5, target[1]+12)
+
+    context.moveTo(target[0] - 12.5, target[1] + 0.5)
+    context.lineTo(target[0] + 12.5, target[1] + 0.5)
+   
+    context.closePath()
+    context.stroke()    
+}
+
+
+function animate (t) {
+    const dt = (t - (last || t)) / 1000
+    last = t
+
+    vec2.set(tmpForce, 0, 0)
+    Boids.steerForSeek(tmpForce, prey, target)
+    vec2.scale(tmpForce, tmpForce, 3)
+
+    const tmpForce2 = Boids.steerForEvasion(vec2.create(), prey, predator)
+    vec2.add(tmpForce, tmpForce, tmpForce2)
+
+    Boids.applySteeringForce(prey, tmpForce, dt)
+
+    // Euler integrate (per frame) velocity into position
+    vec2.add(prey.transform.position, prey.transform.position, prey.rigidBody.velocity)
+
+    // update rotation to match boid's heading
+    prey.transform.rotation = Math.atan2(prey.rigidBody.velocity[1], prey.rigidBody.velocity[0])
+
+    
+    vec2.set(tmpForce, 0, 0)
+
+    if (vec2.distance(prey.transform.position, predator.transform.position) > 40) {
+        Boids.steerForSeek(tmpForce, predator, prey.transform.position) 
+    } else {
+        Boids.steerForPursuit(tmpForce, predator, prey.transform.position, prey.rigidBody.velocity)
+    }
+
+    Boids.applySteeringForce(predator, tmpForce, dt)
+
+    // Euler integrate (per frame) velocity into position
+    vec2.add(predator.transform.position, predator.transform.position, predator.rigidBody.velocity)
+
+    // update rotation to match boid's heading
+    predator.transform.rotation = Math.atan2(predator.rigidBody.velocity[1], predator.rigidBody.velocity[0])
+    
+
+    context.clearRect(0, 0, canvas.width, canvas.height)
+
+    drawTarget(target, context)
+    
+    drawBoid(prey, context, 'dodgerblue')
+
+    drawBoid(predator, context, 'deeppink')
+
+    requestAnimationFrame(animate)
+}
+
+
+const canvas = document.querySelector('canvas')
+const context = canvas.getContext('2d')
+
+let last = 0
+
+const tmpForce = [ 0, 0 ]
+
+const predator = createBoid(50, 50)
+const prey = createBoid(200, 150)
+
+// make the predator a little slower than the prey
+predator.rigidBody.maxSpeed = prey.rigidBody.maxSpeed * 0.8
+
+let target = [ 200, 150 ]
+
+canvas.addEventListener('mousemove', function (ev) {
+    vec2.set(target, ev.offsetX, ev.offsetY)
+})
+
+requestAnimationFrame(animate)
+
+</script>
+
+</body>
+</html>

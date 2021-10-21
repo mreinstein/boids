@@ -1,4 +1,4 @@
-import * as vec2 from 'https://cdn.jsdelivr.net/npm/gl-matrix@3/esm/vec2.js'
+import { vec2 } from './deps.js'
 
 
 // temp static variables used to avoid mem allocations
