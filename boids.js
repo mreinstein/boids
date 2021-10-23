@@ -492,6 +492,8 @@ function steerForCollisionAvoidance (out, boid, boids) {
         vec2.normalize(avoidance, avoidance)
         vec2.scaleAndAdd(out, out, avoidance, boid.steering.maxForce)
         Pool.free(avoidance)
+    } else {
+        vec2.set(out, 0, 0)
     }
 
     Pool.free(ahead)
@@ -509,7 +511,7 @@ function _findMostThreateningObstacle (boid, boids, ahead, ahead2) {
 
     for (const next of boids) {
         if (next === boid)
-            return
+            continue
         const radius = next.radius || Math.max(next.aabb.width, next.aabb.height)
         const collision = _lineIntersectsCircle(ahead, ahead2, next.aabb.position, radius * 1.1)
         // "position" is the character's current position
