@@ -1,9 +1,10 @@
-import Alea                from 'https://cdn.skypack.dev/alea'
+import Alea                from 'https://cdn.skypack.dev/pin/alea@v1.0.0-P9lu4rchYeqab9T0CblM/mode=imports/optimized/alea.js'
 import Pool                from 'https://cdn.jsdelivr.net/gh/mreinstein/vec2-gap/pool.js'
-import { vec2 }            from './deps.js'
+import { vec2, intersectRaySphere } from './deps.js'
 import inBoidNeighborhood  from './in-boid-neighborhood.js'
 import lerp                from 'https://cdn.skypack.dev/lerp'
 import limitDeviationAngle from './limit-deviation-angle.js'
+import perpendicularComponent from './vec2-perpendicular.js'
 import vec2SetLength       from 'https://cdn.jsdelivr.net/gh/mreinstein/vec2-gap/set-length.js'
 import vec2Truncate        from 'https://cdn.jsdelivr.net/gh/mreinstein/vec2-gap/truncate.js'
 
@@ -33,7 +34,7 @@ function createSteeringComponent (options={}) {
         maxForce: options.maxForce || 60,
 
         // collision avoidance
-        MAX_SEE_AHEAD: options.maxSeeAhead || 100,
+        MAX_SEE_AHEAD: options.maxSeeAhead || 40,
 
         // flock
         radius: options.radius || 10, // radius of sphere encapsulating collision body
@@ -70,6 +71,7 @@ function createSteeringComponent (options={}) {
 // allows a specific vehicle class to redefine this adjustment.
 // default is to disallow backward-facing steering at low speed.
 function adjustRawSteeringForce (out, boid, force) {
+
     const maxAdjustedSpeed = 0.2 * boid.rigidBody.maxSpeed
 
     const speed = vec2.length(boid.rigidBody.velocity)
@@ -99,7 +101,7 @@ function adjustRawSteeringForce (out, boid, force) {
 //       It snaps more, but I think this looks better for enemies like bats, etc.
 //       for things like vehicles that have more gradual acceleration the per-frame stuff might be better?
 function applySteeringForce (boid, force/*, elapsedTime*/) {
-
+    
     const adjustedForce = adjustRawSteeringForce(vec2.create(), boid, force)
     //const adjustedForce = vec2.copy(vec2.create(), force)
 
@@ -129,6 +131,7 @@ function applySteeringForce (boid, force/*, elapsedTime*/) {
     // Euler integrate (per frame) velocity into position
     //vec2.scaleAndAdd(boid.transform.position, boid.transform.position, boid.rigidBody.velocity, elapsedTime)
     //vec2.add(boid.transform.position, boid.transform.position, boid.rigidBody.velocity)
+    
 }
 
 
@@ -475,23 +478,36 @@ function steerForQueueing (out, boid, boids) {
 }
 
 
-// http://gamedevelopment.tutsplus.com/tutorials/understanding-steering-behaviors-collision-avoidance--gamedev-7777
-// @param Map boids
+// @param Object out vec2 of resulting steering force
+// @param Obecjt boid
+// @param Array boids obstacles to avoid (other boids)
 function steerForCollisionAvoidance (out, boid, boids) {
     const ahead = vec2.normalize(Pool.malloc(), boid.rigidBody.velocity)
-    vec2.scaleAndAdd(ahead, boid.aabb.position, ahead, boid.steering.MAX_SEE_AHEAD)
+
+    const t = vec2.length(boid.rigidBody.velocity) / boid.rigidBody.maxSpeed
+
+    vec2.scaleAndAdd(ahead, boid.aabb.position, ahead, boid.steering.MAX_SEE_AHEAD * t)
 
     const ahead2 = vec2.normalize(Pool.malloc(), boid.rigidBody.velocity)
-    vec2.scaleAndAdd(ahead2, boid.aabb.position, ahead2, boid.steering.MAX_SEE_AHEAD * 0.5)
+    vec2.scaleAndAdd(ahead2, boid.aabb.position, ahead2, boid.steering.MAX_SEE_AHEAD * 0.5 * t)
 
     const mostThreatening = _findMostThreateningObstacle(boid, boids, ahead, ahead2)
 
     if (mostThreatening) {
-        // obstacle, avoidance force needed
-        const avoidance = vec2.subtract(Pool.malloc(), ahead, mostThreatening.aabb.position)
+        // compute avoidance steering force: take offset from obstacle to me,
+        const offset = vec2.subtract(vec2.create(), boid.aabb.position,  mostThreatening.aabb.position)
+
+        // take the component of that which is lateral (perpendicular to my forward direction),
+        const forward = vec2.normalize(vec2.create(), boid.rigidBody.velocity)
+        const avoidance = perpendicularComponent(vec2.create(), forward, offset)
+
+        //  set length to maxForce, add a bit of forward component
         vec2.normalize(avoidance, avoidance)
-        vec2.scaleAndAdd(out, out, avoidance, boid.steering.maxForce)
-        Pool.free(avoidance)
+        vec2.scale(avoidance, avoidance, boid.steering.maxForce)
+
+        //vec2.copy(out, avoidance)
+        vec2.scaleAndAdd(out, avoidance, forward, boid.steering.maxForce * 0.75)
+        
     } else {
         vec2.set(out, 0, 0)
     }
@@ -509,14 +525,23 @@ function steerForCollisionAvoidance (out, boid, boids) {
 function _findMostThreateningObstacle (boid, boids, ahead, ahead2) {
     let mostThreatening
 
+    const tmp = [ 0, 0 ]
+    const forward = vec2.normalize([ 0, 0 ], boid.rigidBody.velocity)
+
     for (const next of boids) {
         if (next === boid)
             continue
-        const radius = next.radius || Math.max(next.aabb.width, next.aabb.height)
-        const collision = _lineIntersectsCircle(ahead, ahead2, next.aabb.position, radius * 1.1)
-        // "position" is the character's current position
-        if (collision && (!mostThreatening || vec2.distance(boid.aabb.position, next.aabb.position) < vec2.distance(boid.aabb.position, mostThreatening.aabb.position)))
-            mostThreatening = next
+
+        const radius = boid.steering.radius || Math.max(next.aabb.width, next.aabb.height)
+
+        const collision = intersectRaySphere(tmp, boid.aabb.position, forward, next.aabb.position, next.steering.radius)
+
+        const isWithinDist = collision && (vec2.distance(tmp, boid.aabb.position) <= boid.steering.MAX_SEE_AHEAD)
+
+        if (collision &&
+            isWithinDist &&
+            (!mostThreatening || vec2.distance(boid.aabb.position, next.aabb.position) < vec2.distance(boid.aabb.position, mostThreatening.aabb.position)))
+                mostThreatening = next
     }
 
     return mostThreatening
@@ -557,13 +582,6 @@ function _inSight (lookingBoid, boid) {
     Pool.free(difference)
 
     return dotProd >= 0
-}
-
-
-// TODO: replace this check, it sucks. It will only detect intersections when the endpoint of the line are within the circle
-// the property "center" of the obstacle is a vec2
-function _lineIntersectsCircle (ahead, ahead2, center, radius) {
-    return vec2.distance(center, ahead) <= radius || vec2.distance(center, ahead2) <= radius
 }
 
 
