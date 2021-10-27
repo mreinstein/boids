@@ -1,6 +1,7 @@
-import perpendicularComponent from './vec2-perpendicular.js'
-import { vec2 }               from './deps.js'
+import { vec2, perpendicularComponent } from './deps.js'
 
+
+// this was ported and renamed from OpenSteer's Vec3.cpp vecLimitDeviationAngleUtility function
 
 
 // Does a "ceiling" or "floor" operation on the angle by which a given vector

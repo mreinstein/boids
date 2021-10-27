@@ -1,0 +1,128 @@
+<!doctype html>
+<html>
+<head>
+    <title>raySphereOverlap function</title>
+    <meta name=theme-color content=#303F9F><meta name=viewport content="width=device-width,minimum-scale=1">
+    <style>
+        body {
+          font-family: monospace;
+          
+          text-align: center;
+          padding: 60px 0px;
+        }
+
+        canvas {
+            padding: 0px;
+            border:  1px solid #cacaca;
+            background-color: black;
+        }
+
+        p {
+            text-align: left;
+        }
+
+        section {
+            margin:  0px auto;
+            width:  480px;
+        }
+
+    </style>
+</head>
+<body>
+
+<h1> raySphereOverlap Function </h1>
+<canvas width="400" height="240"></canvas>
+<section>
+<p>Clicking on the canvas will move the grey sphere.</p>
+<p>hovering over the canvas will show adjust the direction.</p>
+<p>Green line means no intersection between ray and circle</p>
+<p>Yellow is the non-colliding portion of the ray. Red is the colliding portion< of the ray.</p>
+
+</section>
+
+<script type="module">
+import { vec2 }         from 'https://cdn.skypack.dev/pin/gl-matrix@v3.4.3-OSmwlRYK5GW1unkuAQkN/mode=imports,min/optimized/gl-matrix.js'
+import raySphereOverlap from 'https://cdn.jsdelivr.net/gh/mreinstein/collision-2d/src/ray-sphere-overlap.js'
+
+
+function draw () {
+    context.clearRect(0, 0, canvas.width, canvas.height)
+
+    context.fillStyle = 'rgba(255, 255, 255, 0.1)'
+    
+   // context.setLineDash([2, 2])
+
+    context.beginPath()
+    //context.moveTo(model.origin[0], model.origin[1])
+    context.arc(model.sphere.position[0], model.sphere.position[1], model.sphere.radius, 0, Math.PI * 2, true)
+    context.fill()
+
+    const tmp = [ 0, 0 ]
+
+    const overlaps = raySphereOverlap(model.origin, model.endPoint, model.sphere.position, model.sphere.radius, contact2)
+
+    console.log('collides:', overlaps)
+
+    context.beginPath()
+    context.moveTo(model.origin[0], model.origin[1])
+    if (overlaps) {
+        context.strokeStyle = '#f00'
+        // TODO: :)
+        /*
+        context.strokeStyle = 'yellow'
+        context.lineTo(tmp[0], tmp[1])
+        context.closePath()
+        context.stroke()
+
+        context.beginPath()
+        context.strokeStyle = '#f00'
+        context.moveTo(tmp[0], tmp[1])
+        */
+       
+    } else {
+        context.strokeStyle = 'green'
+    }
+
+    context.lineTo(model.endPoint[0], model.endPoint[1])
+    context.closePath()
+    context.stroke()
+
+    //context.setLineDash([ ])
+}
+
+
+const canvas = document.querySelector('canvas')
+const context = canvas.getContext('2d')
+
+const contact2 = {
+    mu1: NaN,
+    mu2: NaN
+}
+
+const model = {
+    origin: [ canvas.width/2, canvas.height/2 ],
+
+    sphere: {
+        position: [ canvas.width-60, canvas.height/2 ],
+        radius: 50
+    },
+
+    endPoint: [ canvas.width/2, canvas.height/2 ]
+}
+
+canvas.addEventListener('click', function (ev) {
+    vec2.set(model.sphere.position, ev.offsetX, ev.offsetY)
+    draw()
+})
+
+canvas.addEventListener('mousemove', function (ev) {
+    vec2.set(model.endPoint, ev.offsetX, ev.offsetY)
+    draw()
+})
+
+draw()
+
+</script>
+
+</body>
+</html>

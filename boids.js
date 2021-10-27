@@ -1,10 +1,9 @@
 import Alea                from 'https://cdn.skypack.dev/pin/alea@v1.0.0-P9lu4rchYeqab9T0CblM/mode=imports/optimized/alea.js'
 import Pool                from 'https://cdn.jsdelivr.net/gh/mreinstein/vec2-gap/pool.js'
-import { vec2, intersectRaySphere } from './deps.js'
+import { vec2, segmentSphereOverlap, perpendicularComponent } from './deps.js'
 import inBoidNeighborhood  from './in-boid-neighborhood.js'
 import lerp                from 'https://cdn.skypack.dev/lerp'
 import limitDeviationAngle from './limit-deviation-angle.js'
-import perpendicularComponent from './vec2-perpendicular.js'
 import vec2SetLength       from 'https://cdn.jsdelivr.net/gh/mreinstein/vec2-gap/set-length.js'
 import vec2Truncate        from 'https://cdn.jsdelivr.net/gh/mreinstein/vec2-gap/truncate.js'
 
@@ -13,6 +12,9 @@ const defaultSeed = Math.random()
 const defaultRng = new Alea(defaultSeed)
 
 const ORIGIN = vec2.fromValues(0, 0)
+
+const contact = { }
+
 
 /*
   boid entity structure:
@@ -534,14 +536,11 @@ function _findMostThreateningObstacle (boid, boids, ahead, ahead2) {
 
         const radius = boid.steering.radius || Math.max(next.aabb.width, next.aabb.height)
 
-        const collision = intersectRaySphere(tmp, boid.aabb.position, forward, next.aabb.position, next.steering.radius)
+        const p2 = vec2.scaleAndAdd(vec2.create(), boid.aabb.position, forward, boid.steering.MAX_SEE_AHEAD)
+        const intersects = segmentSphereOverlap(boid.aabb.position, p2, next.aabb.position, next.steering.radius, contact)
 
-        const isWithinDist = collision && (vec2.distance(tmp, boid.aabb.position) <= boid.steering.MAX_SEE_AHEAD)
-
-        if (collision &&
-            isWithinDist &&
-            (!mostThreatening || vec2.distance(boid.aabb.position, next.aabb.position) < vec2.distance(boid.aabb.position, mostThreatening.aabb.position)))
-                mostThreatening = next
+        if (intersects && (!mostThreatening || vec2.distance(boid.aabb.position, next.aabb.position) < vec2.distance(boid.aabb.position, mostThreatening.aabb.position)))
+            mostThreatening = next
     }
 
     return mostThreatening
