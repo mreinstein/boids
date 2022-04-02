@@ -2,7 +2,7 @@ import Alea                from 'https://cdn.skypack.dev/pin/alea@v1.0.0-P9lu4rc
 import Pool                from 'https://cdn.jsdelivr.net/gh/mreinstein/vec2-gap/pool.js'
 import { vec2, segmentSphereOverlap, perpendicularComponent } from './deps.js'
 import inBoidNeighborhood  from './in-boid-neighborhood.js'
-import lerp                from 'https://cdn.skypack.dev/lerp'
+import lerp                from 'https://cdn.skypack.dev/pin/lerp@v1.0.3-fjXpN7X7nWMDOQ8ERPDB/mode=imports,min/optimized/lerp.js'
 import limitDeviationAngle from './limit-deviation-angle.js'
 import vec2SetLength       from 'https://cdn.jsdelivr.net/gh/mreinstein/vec2-gap/set-length.js'
 import vec2Truncate        from 'https://cdn.jsdelivr.net/gh/mreinstein/vec2-gap/truncate.js'
