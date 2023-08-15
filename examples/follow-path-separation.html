@@ -25,129 +25,11 @@
 
 <script type="module">
 import * as Boids    from '../src/steering-arcade.js'
+import * as Common   from './common.js'
 import PolylinePath  from '../src/polyline-path.js'
 import { vec2 }      from 'https://cdn.skypack.dev/pin/gl-matrix@v3.4.3-OSmwlRYK5GW1unkuAQkN/mode=imports,min/optimized/gl-matrix.js'
 import segmentNormal from 'https://cdn.jsdelivr.net/gh/mreinstein/collision-2d/src/segment-normal.js'
 import randomInt     from 'https://cdn.jsdelivr.net/gh/mreinstein/random-gap/int.js'
-
-
-function createBoid (x, y) {
-    const transform = {
-        position: [ x, y ],
-        rotation: 0
-    }
-
-    return {
-        aabb: {
-            width: 10,
-            height: 15,
-            position: transform.position
-        },
-
-        rigidBody: {
-            maxSpeed: 120,             // maximum speed vehicle is allowed to move in forward direction
-            velocity: [ 0, 0 ],
-            mass: 1,                   // mass (defaults to 1 so acceleration=force)
-
-            smoothedAcceleration: [ 0, 0 ]
-        },
-
-        steering: Boids.createSteeringComponent({ maxForce: 60, radius: 8 }),
-
-        transform
-    }
-}
-
-
-function drawBoid (boid, context) {
-    
-    context.save()
-
-    const halfWidth = boid.aabb.width / 2
-    const halfHeight = boid.aabb.height / 2
-    const translateX = boid.aabb.position[0]
-    const translateY = boid.aabb.position[1]
-
-    // handle rotation
-    context.translate(translateX, translateY)
-
-    context.rotate(boid.transform.rotation)
-
-    //context.translate(-halfWidth, -halfHeight)
-
-    context.fillStyle = '#333'
-
-    context.beginPath()
-
-    context.moveTo(halfWidth, 0)
-    context.lineTo(-halfWidth, -halfHeight*0.6)
-    context.lineTo(-halfWidth, halfHeight*0.6)
-    context.lineTo(halfWidth, 0)
-
-    context.closePath()
-    context.fill()
-
-    context.restore()
-
-    context.fillStyle = 'deeppink'
-    context.fillRect(boid.aabb.position[0]-2, boid.aabb.position[1]-2, 4, 4)
-}
-
-
-function drawPathTube (path, canvas, context) {
-    context.fillStyle = '#ccc'
-    for (const pt of path.points) {
-        context.beginPath()
-        context.arc(pt[0], pt[1], path.radius, 0, 2 * Math.PI, true)
-        context.closePath()
-        context.fill()
-    }
-
-    // draw oriented boxes to connect the end caps
-    for (let i=1; i < path.pointCount; i++) {
-        const p0 = path.points[i-1]
-        const p1 = path.points[i]
-
-        const normal = [ 0, 0 ]
-
-        context.beginPath()
-
-        segmentNormal(normal, p0, p1)
-        vec2.scale(normal, normal, path.radius)
-
-        context.moveTo(p0[0] + normal[0], p0[1] + normal[1])
-        context.lineTo(p1[0] + normal[0], p1[1] + normal[1])
-        vec2.scale(normal, normal, -1)
-        context.lineTo(p1[0] + normal[0], p1[1] + normal[1])
-        context.lineTo(p0[0] + normal[0], p0[1] + normal[1])
-
-        vec2.scale(normal, normal, -1)
-        context.lineTo(p0[0] + normal[0], p0[1] + normal[1])
-
-        context.closePath()
-        context.fill()
-    }
-}
-
-
-function drawPath (path, canvas, context) {
-    context.beginPath()
-    context.strokeStyle = '#333'
-    for (let i=1; i < path.pointCount; i++) {
-        const p0 = path.points[i-1]
-        const p1 = path.points[i]
-        context.moveTo(p0[0]+ 0.5, p0[1] + 0.5)
-        context.lineTo(p1[0] + 0.5, p1[1] + 0.5)
-    }
-
-    context.closePath()
-    context.stroke()
-
-    context.fillStyle = 'dodgerblue'
-    for (const pt of path.points) {
-        context.fillRect(pt[0]-2, pt[1]-2, 4, 4)
-    }
-}
 
 
 function animate (t) {
@@ -186,11 +68,11 @@ function animate (t) {
 
     context.clearRect(0, 0, canvas.width, canvas.height)
 
-    drawPathTube(p, canvas, context)
-    drawPath(p, canvas, context)
+    Common.drawPathTube(p, canvas, context)
+    Common.drawPath(p, canvas, context)
 
     for (const b of neighbors)
-        drawBoid(b, context)
+        Common.drawBoid(b, context)
 
     requestAnimationFrame(animate)
 }
@@ -222,9 +104,8 @@ const wanderForce = [ 0, 0 ]
 const boidCount = 8
 const neighbors = [ ]
 
-for (let i=0; i < boidCount; i++) {
-    neighbors.push(createBoid(randomInt(45,55), randomInt(105,115)))
-}
+for (let i=0; i < boidCount; i++)
+    neighbors.push(Common.createBoid({ x: randomInt(45,55), y: randomInt(105,115), maxSpeed: 120, maxForce: 60, radius: 8 }))
 
 requestAnimationFrame(animate)
 

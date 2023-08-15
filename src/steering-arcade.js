@@ -244,7 +244,7 @@ export function steerForPursuit (out, pursuerBoid, targetPosition, targetVelocit
 
     vec2.scale(_scaledVelocity, targetVelocity, lookAheadTime)
 
-    vec2.add(_predictedTarget, targetPosition, scaledVelocity)
+    vec2.add(_predictedTarget, targetPosition, _scaledVelocity)
 
     steerForSeek(out, pursuerBoid, _predictedTarget)
 

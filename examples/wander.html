@@ -25,67 +25,8 @@
 
 <script type="module">
 import * as Boids from '../src/steering-arcade.js'
+import * as Common from './common.js'
 import { vec2 }   from 'https://cdn.skypack.dev/pin/gl-matrix@v3.4.3-OSmwlRYK5GW1unkuAQkN/mode=imports,min/optimized/gl-matrix.js'
-
-
-function createBoid (x, y) {
-    const transform = {
-        position: [ x, y ],
-        rotation: 0
-    }
-
-    return {
-        aabb: {
-            width: 10,
-            height: 15,
-            position: transform.position
-        },
-
-        rigidBody: {
-            maxSpeed: 60,             // maximum speed vehicle is allowed to move in forward direction
-            velocity: [ 0, 0 ],
-            mass: 1,                   // mass (defaults to 1 so acceleration=force)
-
-            smoothedAcceleration: [ 0, 0 ]
-        },
-
-        steering: Boids.createSteeringComponent({ maxForce: 60 }),
-
-        transform
-    }
-}
-
-
-function drawBoid (boid, context) {
-    
-    context.save()
-
-    const halfWidth = boid.aabb.width / 2
-    const halfHeight = boid.aabb.height / 2
-    const translateX = boid.aabb.position[0]
-    const translateY = boid.aabb.position[1]
-
-    // handle rotation
-    context.translate(translateX, translateY)
-
-    context.rotate(boid.transform.rotation)
-
-    //context.translate(-halfWidth, -halfHeight)
-
-    context.fillStyle = '#333'
-
-    context.beginPath()
-
-    context.moveTo(halfWidth, 0)
-    context.lineTo(-halfWidth, -halfHeight*0.6)
-    context.lineTo(-halfWidth, halfHeight*0.6)
-    context.lineTo(halfWidth, 0)
-
-    context.closePath()
-    context.fill()
-
-    context.restore()
-}
 
 
 function animate (t) {
@@ -116,7 +57,7 @@ function animate (t) {
 
     context.clearRect(0, 0, canvas.width, canvas.height)
 
-    drawBoid(b, context)
+    Common.drawBoid(b, context)
 
     requestAnimationFrame(animate)
 }
@@ -129,7 +70,7 @@ let last = 0
 
 const tmpForce = [ 0, 0 ]
 
-const b = createBoid(150, 150)
+const b = Common.createBoid({ x: 150, y: 150, maxForce: 60, maxSpeed: 60 })
 
 
 requestAnimationFrame(animate)
