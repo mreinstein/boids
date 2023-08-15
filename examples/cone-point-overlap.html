@@ -60,14 +60,14 @@ function draw () {
 
     if (model.minDistance > 0) {
         context.fillStyle = 'black'
-        //context.moveTo(model.origin[0], model.origin[1])
         context.beginPath()
         context.arc(model.origin[0], model.origin[1], model.minDistance, 0, Math.PI*2, false)
         context.fill()
     }
 
     const coneFieldOfView = toRadians(model.coneFieldOfView)
-    const pc = conePointOverlap(model.origin, startAngle, model.coneFieldOfView, model.minDistance, model.maxDistance, source) ? '#0f0' : '#f00'
+    const pc = conePointOverlap(model.origin, startAngle, model.coneFieldOfView, model.minDistance, model.maxDistance, source) ?
+                '#0f0' : '#f00'
     
     context.fillStyle = pc
     context.fillRect(source[0]-2, source[1]-2, 4, 4)
@@ -86,7 +86,7 @@ const model = {
     coneFieldOfView: 90,
     minDistance: 10,
     maxDistance: 50,
-    basis: [ 1, 0 ]
+    basis: [ 0, 1 ]
 }
 
 const gui = new dat.GUI()

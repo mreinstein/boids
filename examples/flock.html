@@ -33,10 +33,18 @@ function animate (t) {
     const dt = (t - (last || t)) / 1000
     last = t
 
-    if (vec2.distance(target, b.transform.position) > 2) {
+    //debugger
+    //if (vec2.distance(target, b.transform.position) > 2) {
         for (const boid of neighbors) {
+
             Boids.steerForSeek(tmpForce, boid, target)
+            //vec2.scale(tmpForce, tmpForce, 2)
+            
+            //Boids.steerForSeparation(tmpForce2, boid, neighbors)
             Boids.steerForFlock(tmpForce2, boid, neighbors)
+            vec2.normalize(tmpForce2, tmpForce2)
+            vec2.scale(tmpForce2, tmpForce2, boid.rigidBody.maxSpeed)
+            vec2.scale(tmpForce2, tmpForce2, 2)
 
             vec2.add(tmpForce, tmpForce, tmpForce2)
             Boids.applySteeringForce(boid, tmpForce, dt)
@@ -48,7 +56,7 @@ function animate (t) {
             // update rotation to match boid's heading
             boid.transform.rotation = Math.atan2(boid.rigidBody.velocity[1], boid.rigidBody.velocity[0])
         }
-    }
+    //}
 
     context.clearRect(0, 0, canvas.width, canvas.height)
 

@@ -33,7 +33,7 @@ function animate (t) {
     const dt = (t - (last || t)) / 1000
     last = t
 
-     vec2.set(tmpForce, 0, 0)
+    vec2.set(tmpForce, 0, 0)
 
     if (vec2.distance(target, b.transform.position) < 40) {
         Boids.steerForFlee(tmpForce, b, target)

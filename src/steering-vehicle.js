@@ -250,13 +250,14 @@ export function xxxSteerForFlee (out, fleeingBoid, targetVec) {
 
 
 // steer away from neighbors
-export function steerForSeparation (out, boid, maxDistance, boidFieldOfView, flock) {
+// calculates a normalized steering vector to stay separated from other flock members
+// @param number boidFieldOfView angle of cone in degrees
+export function steerForSeparation (out, boid, minDistance, maxDistance, boidFieldOfView, flock) {
     // steering accumulator and count of neighbors, both initially zero
     vec2.set(out, 0, 0)
     let neighbors = 0
 
     // for each of the other vehicles...
-    const minDistance = boid.steering.radius // * 3
     for (const other of flock) {
         if (inBoidNeighborhood(boid, other, minDistance, maxDistance, boidFieldOfView)) {
             // add in steering contribution
@@ -283,13 +284,12 @@ export function steerForSeparation (out, boid, maxDistance, boidFieldOfView, flo
 
 
 // Alignment behavior: steer to head in same direction as neighbors
-function steerForAlignment (out, boid, maxDistance, boidFieldOfView, flock) {
+function steerForAlignment (out, boid, minDistance, maxDistance, boidFieldOfView, flock) {
     // steering accumulator and count of neighbors, both initially zero
     vec2.set(out, 0, 0)
     let neighbors = 0
 
     // for each of the other vehicles...
-    const minDistance = boid.steering.radius * 3
     for (const other of flock) {
         if (inBoidNeighborhood(boid, other, minDistance, maxDistance, boidFieldOfView)) {
             // accumulate sum of neighbor's heading
@@ -315,13 +315,12 @@ function steerForAlignment (out, boid, maxDistance, boidFieldOfView, flock) {
 
 
 // Cohesion behavior: to to move toward center of neighbors
-function steerForCohesion (out, boid, maxDistance, boidFieldOfView, flock) {
+function steerForCohesion (out, boid, minDistance, maxDistance, boidFieldOfView, flock) {
     // steering accumulator and count of neighbors, both initially zero
     vec2.set(out, 0, 0)
     let neighbors = 0
 
     // for each of the other vehicles...
-    const minDistance = boid.steering.radius * 3
     for (const other of flock) {
         if (inBoidNeighborhood(boid, other, minDistance, maxDistance, boidFieldOfView)) {
             // accumulate sum of neighbor's positions
@@ -347,34 +346,36 @@ function steerForCohesion (out, boid, maxDistance, boidFieldOfView, flock) {
 // group of boids loosely move together
 // from plugins/Boids.cpp
 export function steerForFlock (out, boid, flock) {
-    const separationRadius =  50.0
+    // distances to be considered part of a boid neighborhood
+    const minDistance = boid.steering.radius * 3
+
+    const separationRadius = boid.steering.radius * 10
     //const separationAngle  = -0.707
-    const separationFieldOfView = 135
+    const separationFieldOfView = 360 // 135
     const separationWeight =  12.0
 
-    const alignmentRadius = 60
+    const alignmentRadius = boid.steering.radius * 15
     //const alignmentAngle  = 0.7
-    const alignmentFieldOfView = 46
+    const alignmentFieldOfView = 360 //46
     const alignmentWeight = 8.0
 
-    const cohesionRadius = 20
+    const cohesionRadius = boid.steering.radius * 18
     //const cohesionAngle  = -0.15
-    const cohesionFieldOfView = 99
+    const cohesionFieldOfView = 360 //99
     const cohesionWeight = 8.0
 
-    const maxRadius = Math.max(separationRadius, alignmentRadius, cohesionRadius)
-
     // determine each of the three component behaviors of flocking
-    const separation = steerForSeparation([ 0, 0 ], boid, separationRadius, separationFieldOfView, flock)
-
-    const alignment  = steerForAlignment([ 0, 0 ], boid, alignmentRadius, alignmentFieldOfView, flock)
     
-    const cohesion   = steerForCohesion([ 0, 0 ], boid, cohesionRadius, cohesionFieldOfView, flock)
+    const separation = steerForSeparation([ 0, 0 ], boid, minDistance, separationRadius, separationFieldOfView, flock)
+
+    const alignment  = steerForAlignment([ 0, 0 ], boid, minDistance, alignmentRadius, alignmentFieldOfView, flock)
+    
+    const cohesion   = steerForCohesion([ 0, 0 ], boid, minDistance, cohesionRadius, cohesionFieldOfView, flock)
 
     // apply weights to components (save in variables for annotation)
-    const separationW = vec2.scale([ 0, 0 ], separation, separationWeight)
-    const alignmentW = vec2.scale([ 0, 0 ], alignment, alignmentWeight)
-    const cohesionW = vec2.scale([ 0, 0 ], cohesion, cohesionWeight)
+    const separationW = vec2.scale(separation, separation, separationWeight)
+    const alignmentW = vec2.scale(alignment, alignment, alignmentWeight)
+    const cohesionW = vec2.scale(cohesion, cohesion, cohesionWeight)
 
     vec2.add(out, separationW, alignmentW)
     return vec2.add(out, out, cohesionW) 

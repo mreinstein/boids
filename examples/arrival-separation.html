@@ -45,9 +45,10 @@ function animate (t) {
             vec2.scale(arrivalForce, arrivalForce, arrivalWeight)
 
             vec2.set(separationForce, 0, 0)
-            const maxDistance = 100
+            const maxDistance = 180
             const fieldOfViewDegrees = 135
-            Boids.steerForSeparation(separationForce, boid, maxDistance, fieldOfViewDegrees, neighbors)
+            const minDistance = boid.steering.radius * 3
+            Boids.steerForSeparation(separationForce, boid, minDistance, maxDistance, fieldOfViewDegrees, neighbors)
 
             const separationWeight = 6.0
             vec2.scale(separationForce, separationForce, separationWeight)

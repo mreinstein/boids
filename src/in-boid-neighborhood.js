@@ -2,6 +2,7 @@ import { conePointOverlap, vec2 } from './deps.js'
 
 
 // is a given vehicle within this boid's neighborhood?
+// @param number boidFieldOfView angle of cone in degrees
 export default function inBoidNeighborhood (boid, other, minDistance, maxDistance, boidFieldOfView) {
     if (other === boid)
         return false

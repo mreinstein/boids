@@ -187,11 +187,21 @@ function inSight (lookingBoid, boid) {
 
 
 export function steerForFlock (out, boid, flock) {
+    VehicleSteering.steerForFlock(out, boid, flock)
+}
+
+/*
+// this is from Ian's implementation but I couldn't get it to work. I don't think it's
+// doing proper alignment + cohesion + separation
+export function steerForFlock (out, boid, flock) {
     vec2.copy(_averageVelocity, boid.rigidBody.velocity)
     vec2.set(_averagePosition, 0, 0)
     let inSightCount = 0
 
     const minDistanceSq = boid.steering.minDistance * boid.steering.minDistance
+
+    vec2.set(out, 0, 0)
+    const _tmp = vec2.create()
 
     for (let i = 0; i < flock.length; i++) {
         const b = flock[i]
@@ -200,8 +210,10 @@ export function steerForFlock (out, boid, flock) {
             vec2.add(_averageVelocity, _averageVelocity, b.rigidBody.velocity)
             vec2.add(_averagePosition, _averagePosition, b.transform.position)
 
-            if (vec2.squaredDistance(boid.transform.position, b.transform.position) < minDistanceSq)
-                steerForFlee(out, boid, b.transform.position)
+            if (vec2.squaredDistance(boid.transform.position, b.transform.position) < minDistanceSq) {
+                steerForFlee(_tmp, boid, b.transform.position)
+                vec2.add(out, out, _tmp)
+            }
 
             inSightCount++
         }
@@ -210,15 +222,15 @@ export function steerForFlock (out, boid, flock) {
     if (inSightCount > 0) {
         vec2.scale(_averageVelocity, _averageVelocity, 1/inSightCount)
         vec2.scale(_averagePosition, _averagePosition, 1/inSightCount)
-        steerForSeek(out, boid, _averagePosition)
+        steerForSeek(_tmp, boid, _averagePosition)
+        vec2.add(out, out, _tmp)
         vec2.subtract(_deltaVelocity, _averageVelocity, boid.rigidBody.velocity)
         vec2.add(out, out, _deltaVelocity)
-    } else {
-        vec2.set(out, 0, 0)
     }
     
     return out
 }
+*/
 
 
 // wander around, changing angle by a limited amount each tick
@@ -300,7 +312,8 @@ export function steerForFollowLeader (out, boid, leader, boids) {
 }
 
 
-export function steerForSeparation (out, boid, maxDistance, boidFieldOfView, flock) {
+export function steerForSeparation (out, boid, minDistance, maxDistance, boidFieldOfView, flock) {
     // re-use the steerForSeparation function in vehicles. might work ok.
-    VehicleSteering.steerForSeparation (out, boid, maxDistance, boidFieldOfView, flock)
+    VehicleSteering.steerForSeparation (out, boid, minDistance, maxDistance, boidFieldOfView, flock)
 }
+
