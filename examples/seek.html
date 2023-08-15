@@ -24,8 +24,8 @@
 <canvas width="400" height="240"></canvas>
 
 <script type="module">
-import Boids    from '../boids.js'
-import { vec2 } from 'https://cdn.skypack.dev/pin/gl-matrix@v3.4.3-OSmwlRYK5GW1unkuAQkN/mode=imports,min/optimized/gl-matrix.js'
+import * as Boids from '../src/steering-arcade.js'
+import { vec2 }   from 'https://cdn.skypack.dev/pin/gl-matrix@v3.4.3-OSmwlRYK5GW1unkuAQkN/mode=imports,min/optimized/gl-matrix.js'
 
 
 function createBoid (x, y) {
@@ -42,14 +42,14 @@ function createBoid (x, y) {
         },
 
         rigidBody: {
-            maxSpeed: 5,             // maximum speed vehicle is allowed to move in forward direction
+            maxSpeed: 60,             // maximum speed vehicle is allowed to move in forward direction
             velocity: [ 0, 0 ],
             mass: 1,                   // mass (defaults to 1 so acceleration=force)
 
             smoothedAcceleration: [ 0, 0 ]
         },
 
-        steering: Boids.createSteeringComponent({ maxForce: 1 }),
+        steering: Boids.createSteeringComponent({ maxForce: 60 }),
 
         transform
     }
@@ -118,8 +118,8 @@ function animate (t) {
     const dt = (t - (last || t)) / 1000
     last = t
 
-    if (target && vec2.distance(target, b.transform.position) > 5) {
-        vec2.set(tmpForce, 0, 0)
+    if (target /*&& vec2.distance(target, b.transform.position) > 5*/) {
+        //vec2.set(tmpForce, 0, 0)
         Boids.steerForSeek(tmpForce, b, target)
         Boids.applySteeringForce(b, tmpForce, dt)
 
@@ -128,7 +128,8 @@ function animate (t) {
     }
 
     // Euler integrate (per frame) velocity into position
-    vec2.add(b.transform.position, b.transform.position, b.rigidBody.velocity)
+    b.transform.position[0] += (b.rigidBody.velocity[0] * dt)
+    b.transform.position[1] += (b.rigidBody.velocity[1] * dt)
 
     context.clearRect(0, 0, canvas.width, canvas.height)
 

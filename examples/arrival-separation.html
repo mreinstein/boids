@@ -24,9 +24,9 @@
 <canvas width="400" height="240"></canvas>
 
 <script type="module">
-import Boids     from '../boids.js'
-import { vec2 }  from 'https://cdn.skypack.dev/pin/gl-matrix@v3.4.3-OSmwlRYK5GW1unkuAQkN/mode=imports,min/optimized/gl-matrix.js'
-import randomInt from 'https://cdn.jsdelivr.net/gh/mreinstein/random-gap/int.js'
+import * as Boids from '../src/steering-arcade.js'
+import { vec2 }   from 'https://cdn.skypack.dev/pin/gl-matrix@v3.4.3-OSmwlRYK5GW1unkuAQkN/mode=imports,min/optimized/gl-matrix.js'
+import randomInt  from 'https://cdn.jsdelivr.net/gh/mreinstein/random-gap/int.js'
 
 
 function createBoid (x, y) {
@@ -43,14 +43,14 @@ function createBoid (x, y) {
         },
 
         rigidBody: {
-            maxSpeed: 5,             // maximum speed vehicle is allowed to move in forward direction
+            maxSpeed: 60,             // maximum speed vehicle is allowed to move in forward direction
             velocity: [ 0, 0 ],
             mass: 1,                   // mass (defaults to 1 so acceleration=force)
 
             smoothedAcceleration: [ 0, 0 ]
         },
 
-        steering: Boids.createSteeringComponent({ maxForce: 1, radius: 8 }),
+        steering: Boids.createSteeringComponent({ maxForce: 60, radius: 8 }),
 
         transform
     }
@@ -158,7 +158,8 @@ function animate (t) {
         }
 
         // Euler integrate (per frame) velocity into position
-        vec2.add(boid.transform.position, boid.transform.position, boid.rigidBody.velocity)
+        boid.transform.position[0] += (boid.rigidBody.velocity[0] * dt)
+        boid.transform.position[1] += (boid.rigidBody.velocity[1] * dt)
 
         i++
     }

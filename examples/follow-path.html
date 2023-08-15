@@ -24,8 +24,8 @@
 <canvas width="400" height="240"></canvas>
 
 <script type="module">
-import Boids         from '../boids.js'
-import PolylinePath  from '../polyline-path.js'
+import * as Boids    from '../src/steering-arcade.js'
+import PolylinePath  from '../src/polyline-path.js'
 import segmentNormal from 'https://cdn.jsdelivr.net/gh/mreinstein/collision-2d/src/segment-normal.js'
 import { vec2 }      from 'https://cdn.skypack.dev/pin/gl-matrix@v3.4.3-OSmwlRYK5GW1unkuAQkN/mode=imports,min/optimized/gl-matrix.js'
 
@@ -44,14 +44,14 @@ function createBoid (x, y) {
         },
 
         rigidBody: {
-            maxSpeed: 5,
+            maxSpeed: 120,
             velocity: [ 0, 0 ],
             mass: 1,                   // mass (defaults to 1 so acceleration=force)
 
             smoothedAcceleration: [ 0, 0 ]
         },
 
-        steering: Boids.createSteeringComponent({ maxForce: 1 }),
+        steering: Boids.createSteeringComponent({ maxForce: 240 }),
 
         transform
     }
@@ -146,22 +146,42 @@ function drawBoid (boid, context) {
 }
 
 
+// called when steerToFollowPath decides steering is required
+window.annotatePathFollowing = function (position, future, onPath, target, outside) {
+
+    // this function is called from the boids logic, and after it runs the canvas is cleared
+    // so we can't directly draw in here. Instead we copy the data into a temporary object,
+    // and draw later in the normal rendering code
+    vec2.copy(annotation.position, position)
+    vec2.copy(annotation.future, future)
+    vec2.copy(annotation.onPath, onPath)
+    vec2.copy(annotation.target, target)
+    annotation.outside = outside
+    annotation.draw = true
+}
+
+
 function animate (t) {
     let dt = (t - (last || t)) / 1000
     last = t
 
     if (dt === 0)
         dt = 1 / 60
-    const direction = 1
-    const predictionTime = dt //dt //1 / 60
 
-    Boids.steerForFollowPath(tmpForce, b, p)
+    const direction = 1
+    const predictionTime = 10 / 60 // look 20 frames ahead
+    const loop = false
+    annotation.draw = false
+
+    //Boids.steerToStayOnPath(tmpForce, b, p, predictionTime)
+    Boids.steerForFollowPath(tmpForce, b, p, direction, predictionTime, loop)    
 
     Boids.applySteeringForce(b, tmpForce, dt)
 
     // Euler integrate (per frame) velocity into position
-    vec2.add(b.transform.position, b.transform.position, b.rigidBody.velocity)
-    
+    b.transform.position[0] += b.rigidBody.velocity[0] * dt
+    b.transform.position[1] += b.rigidBody.velocity[1] * dt
+
     // update rotation to match boid's heading
     b.transform.rotation = Math.atan2(b.rigidBody.velocity[1], b.rigidBody.velocity[0])
 
@@ -172,6 +192,57 @@ function animate (t) {
 
     drawBoid(b, context)
 
+    if (annotation.draw) {
+        // draw debug annotation stuff
+        const yellow  = 'rgb(255,255,0)'
+        const lightOrange = 'rgb(255,127,0)'
+        const darkOrange = 'rgb(153,76,0)'
+        const yellowOrange =  'rgb(255,191,0)'
+
+        // draw line from our position to our predicted future position
+        context.strokeStyle = yellow
+        context.beginPath()
+        context.moveTo(annotation.position[0], annotation.position[1])
+        context.lineTo(annotation.future[0], annotation.future[1])
+        context.stroke()
+
+        // draw line from our position to our steering target on the path
+        context.strokeStyle = yellowOrange
+        context.beginPath()
+        context.moveTo(annotation.position[0], annotation.position[1])
+        context.lineTo(annotation.target[0], annotation.target[1])
+        context.stroke()
+
+        // draw a two-toned line between the future test point and its
+        // projection onto the path, the change from dark to light color
+        // indicates the boundary of the tube.
+        const boundaryOffset = vec2.subtract(vec2.create(), annotation.onPath, annotation.future)
+        vec2.normalize(boundaryOffset, boundaryOffset)
+        vec2.scale(boundaryOffset, boundaryOffset, annotation.outside)
+
+        const onPathBoundary = vec2.add(vec2.create(), annotation.future, boundaryOffset)
+
+        context.strokeStyle = darkOrange
+        context.beginPath()
+        context.moveTo(annotation.onPath[0], annotation.onPath[1])
+        context.lineTo(onPathBoundary[0], onPathBoundary[1])
+        context.stroke()
+
+
+        context.strokeStyle = lightOrange
+        context.beginPath()
+        context.moveTo(onPathBoundary[0], onPathBoundary[1])
+        context.lineTo(annotation.future[0], annotation.future[1])
+        context.stroke()
+
+        /*
+        const Vec3 boundaryOffset = (onPath - future).normalize() * outside
+        const Vec3 onPathBoundary = future + boundaryOffset
+        annotationLine(onPath, onPathBoundary, darkOrange)
+        annotationLine(onPathBoundary, future, lightOrange)
+        */
+    }
+
     requestAnimationFrame(animate)
 }
 
@@ -179,9 +250,9 @@ function animate (t) {
 const canvas = document.querySelector('canvas')
 const context = canvas.getContext('2d')
 
-const p = PolylinePath.createPolylinePath({
+const p = PolylinePath.create({
     cyclic: false,
-    radius: 0,
+    radius: 16,
     points: [
         [ 51, 111 ],
         [ 113, 174 ],
@@ -193,12 +264,21 @@ const p = PolylinePath.createPolylinePath({
     pointCount: 6
 })
 
-
 let last = 0
 
 const tmpForce = [ 0, 0 ]
 
 const b = createBoid(45, 110)
+
+// used to render visual debugging related to path following
+const annotation = {
+    position: vec2.create(),
+    future: vec2.create(),
+    target: vec2.create(),
+    onPath: vec2.create(),
+    outside: 0,
+    draw: false  // only draw this data when true
+}
 
 
 requestAnimationFrame(animate)

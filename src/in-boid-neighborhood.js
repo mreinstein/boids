@@ -1,5 +1,4 @@
-import { vec2 }         from './deps.js'
-import conePointOverlap from 'https://cdn.jsdelivr.net/gh/mreinstein/collision-2d/src/cone-point-overlap.js'
+import { conePointOverlap, vec2 } from './deps.js'
 
 
 // is a given vehicle within this boid's neighborhood?

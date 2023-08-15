@@ -24,8 +24,8 @@
 <canvas width="400" height="240"></canvas>
 
 <script type="module">
-import Boids         from '../boids.js'
-import PolylinePath  from '../polyline-path.js'
+import * as Boids    from '../src/steering-arcade.js'
+import PolylinePath  from '../src/polyline-path.js'
 import { vec2 }      from 'https://cdn.skypack.dev/pin/gl-matrix@v3.4.3-OSmwlRYK5GW1unkuAQkN/mode=imports,min/optimized/gl-matrix.js'
 import segmentNormal from 'https://cdn.jsdelivr.net/gh/mreinstein/collision-2d/src/segment-normal.js'
 import randomInt     from 'https://cdn.jsdelivr.net/gh/mreinstein/random-gap/int.js'
@@ -45,14 +45,14 @@ function createBoid (x, y) {
         },
 
         rigidBody: {
-            maxSpeed: 5,             // maximum speed vehicle is allowed to move in forward direction
+            maxSpeed: 120,             // maximum speed vehicle is allowed to move in forward direction
             velocity: [ 0, 0 ],
             mass: 1,                   // mass (defaults to 1 so acceleration=force)
 
             smoothedAcceleration: [ 0, 0 ]
         },
 
-        steering: Boids.createSteeringComponent({ maxForce: 1, radius: 8 }),
+        steering: Boids.createSteeringComponent({ maxForce: 60, radius: 8 }),
 
         transform
     }
@@ -156,7 +156,11 @@ function animate (t) {
 
     for (const boid of neighbors) {
         vec2.set(followPathForce, 0, 0)
-        Boids.steerForFollowPath(followPathForce, boid, p)
+        const direction = 1
+        const predictionTime = dt
+        const loop = false
+        Boids.steerForFollowPath(followPathForce, boid, p, direction, predictionTime, loop)
+
 
         const followPathWeight = 2.0
         vec2.scale(followPathForce, followPathForce, followPathWeight)
@@ -173,7 +177,8 @@ function animate (t) {
         Boids.applySteeringForce(boid, followPathForce, dt)
 
         // Euler integrate (per frame) velocity into position
-        vec2.add(boid.transform.position, boid.transform.position, boid.rigidBody.velocity)
+        boid.transform.position[0] += (boid.rigidBody.velocity[0] * dt)
+        boid.transform.position[1] += (boid.rigidBody.velocity[1] * dt)
 
         // update rotation to match boid's heading
         boid.transform.rotation = Math.atan2(boid.rigidBody.velocity[1], boid.rigidBody.velocity[0])
@@ -194,9 +199,9 @@ function animate (t) {
 const canvas = document.querySelector('canvas')
 const context = canvas.getContext('2d')
 
-const p = PolylinePath.createPolylinePath({
+const p = PolylinePath.create({
     cyclic: false,
-    radius: 0,
+    radius: 24,
     points: [
         [ 51, 111 ],
         [ 113, 174 ],

@@ -1,6 +1,7 @@
 import Alea                from 'https://cdn.skypack.dev/pin/alea@v1.0.0-P9lu4rchYeqab9T0CblM/mode=imports/optimized/alea.js'
+import Path                from './polyline-path.js'
 import Pool                from 'https://cdn.jsdelivr.net/gh/mreinstein/vec2-gap/pool.js'
-import { vec2, segmentSphereOverlap, perpendicularComponent } from './deps.js'
+import { clamp, vec2, segmentSphereOverlap, perpendicularComponent } from './deps.js'
 import inBoidNeighborhood  from './in-boid-neighborhood.js'
 import lerp                from 'https://cdn.skypack.dev/pin/lerp@v1.0.3-fjXpN7X7nWMDOQ8ERPDB/mode=imports,min/optimized/lerp.js'
 import limitDeviationAngle from './limit-deviation-angle.js'
@@ -12,6 +13,9 @@ const defaultSeed = Math.random()
 const defaultRng = new Alea(defaultSeed)
 
 const ORIGIN = vec2.fromValues(0, 0)
+
+const _desiredVelocity = vec2.create()
+const _offset = vec2.create()
 
 const contact = { }
 
@@ -30,16 +34,16 @@ const contact = { }
 */
 
 
-function createSteeringComponent (options={}) {
+export function createSteeringComponent (options={}) {
     return {
         // common vehicle steering parameters
-        maxForce: options.maxForce || 60,
+        maxForce: options.maxForce ?? 60,
 
         // collision avoidance
-        MAX_SEE_AHEAD: options.maxSeeAhead || 40,
+        MAX_SEE_AHEAD: options.maxSeeAhead ?? 40,
 
         // flock
-        radius: options.radius || 10, // radius of sphere encapsulating collision body
+        radius: options.radius ?? 10, // radius of sphere encapsulating collision body
         maxDistance: 300,
         minDistance: 60,
 
@@ -50,7 +54,7 @@ function createSteeringComponent (options={}) {
         wanderRange: 1,
 
         // arrive
-        arriveThreshold: 50,
+        arriveThreshold: options.arrivalThreshold ?? 50,
 
         // leader follow
         leaderBehindDistance: 32,
@@ -58,7 +62,6 @@ function createSteeringComponent (options={}) {
 
         // path follow
         pathIndex: 0,
-        pathThreshold: (options.pathThreshold === undefined) ? 20 : options.pathThreshold,
 
         // queueing
         maxQueueAhead: 40,
@@ -99,13 +102,13 @@ function adjustRawSteeringForce (out, boid, force) {
 }
 
 
-// NOTE: the per frame accelation and velocity is intentionally disabled.
-//       It snaps more, but I think this looks better for enemies like bats, etc.
-//       for things like vehicles that have more gradual acceleration the per-frame stuff might be better?
-function applySteeringForce (boid, force/*, elapsedTime*/) {
+// apply a given steering force to our momentum,
+// adjusting our orientation to maintain velocity-alignment.
+//
+// @param Number elapsedTime  seconds elapsed (dt)
+export function applySteeringForce (boid, force, elapsedTime) {
     
     const adjustedForce = adjustRawSteeringForce(vec2.create(), boid, force)
-    //const adjustedForce = vec2.copy(vec2.create(), force)
 
     // enforce limit on magnitude of steering force
     const clippedForce = vec2Truncate(vec2.create(), adjustedForce, boid.steering.maxForce)
@@ -113,97 +116,141 @@ function applySteeringForce (boid, force/*, elapsedTime*/) {
     const newAcceleration = vec2.scale(vec2.create(), clippedForce, 1/boid.rigidBody.mass)
 
     // damp out abrupt changes and oscillations in steering acceleration
-    const smoothRate = 0.4
-
-    vec2.lerp(boid.rigidBody.smoothedAcceleration, boid.rigidBody.smoothedAcceleration, newAcceleration, smoothRate)
-
-
+    // (rate is proportional to time step, then clipped into useful range)
+    if (elapsedTime > 0) {
+        const smoothRate = clamp(9 * elapsedTime, 0.15, 0.4)
+        vec2.lerp(boid.rigidBody.smoothedAcceleration, boid.rigidBody.smoothedAcceleration, newAcceleration, smoothRate)
+    }
+    
     // Euler integrate (per frame) acceleration into velocity
-    //const newVelocity = vec2.scaleAndAdd(vec2.create(), boid.rigidBody.velocity, boid.rigidBody.smoothedAcceleration, elapsedTime)
-    const newVelocity = vec2.add(vec2.create(), boid.rigidBody.velocity, boid.rigidBody.smoothedAcceleration)
+    const newVelocity = vec2.create()
 
+    newVelocity[0] = boid.rigidBody.velocity[0] + boid.rigidBody.smoothedAcceleration[0] * elapsedTime
+    newVelocity[1] = boid.rigidBody.velocity[1] + boid.rigidBody.smoothedAcceleration[1] * elapsedTime
 
     // enforce speed limit
     vec2Truncate(boid.rigidBody.velocity, newVelocity, boid.rigidBody.maxSpeed)
 
-
-    // integrating position is disabled intentionally. In cases where a rigidBody physics system performs collision response, updating
-    // position here directly interferes with that.
+    // integrating position is disabled intentionally. In cases where a rigidBody physics system performs collision response,
+    // updating position here directly interferes with that.
 
     // Euler integrate (per frame) velocity into position
     //vec2.scaleAndAdd(boid.transform.position, boid.transform.position, boid.rigidBody.velocity, elapsedTime)
-    //vec2.add(boid.transform.position, boid.transform.position, boid.rigidBody.velocity)
-    
 }
 
 
-// steer torwards target
-function steerForSeek (out, boid, target) {
-    const desiredVelocity = vec2.subtract(Pool.malloc(), target, boid.aabb.position)
-    vec2SetLength(desiredVelocity, desiredVelocity, boid.rigidBody.maxSpeed)
+// from opensteer. just tries to keep the vehicle on the path
+// The path defines a tube in terms of a spine and a radius, the goal is to keep a
+// vehicle headed toward a point inside that tube.
+export function steerToStayOnPath (out, boid, path, predictionTime) {
+    // predict our future position
+    const futurePosition = predictFuturePosition(vec2.create(), boid, predictionTime)
 
-    vec2.subtract(out, desiredVelocity, boid.rigidBody.velocity)
-
-    Pool.free(desiredVelocity)
-    return out
-}
-
-
-// seek until within arriveThreshold
-function steerForArrival (out, boid, target) {
-    const desiredVelocity = vec2.subtract(Pool.malloc(), target, boid.aabb.position)
-    vec2.normalize(desiredVelocity, desiredVelocity)
-
-    const distance = vec2.distance(boid.aabb.position, target)
-    //const arriveThresholdSq = boid.steering.arriveThreshold * boid.steering.arriveThreshold
-    //const distanceSq = vec2.squaredDistance(boid.aabb.position, target)
-    //if (distanceSq > arriveThresholdSq) {
-    if (distance > boid.steering.arriveThreshold) {
-        vec2.scale(desiredVelocity, desiredVelocity, boid.rigidBody.maxSpeed)
-    } else {
-        //const scalar = boid.rigidBody.maxSpeed * distance / arriveThresholdSq
-        const scalar = boid.rigidBody.maxSpeed * distance / boid.steering.arriveThreshold
-        vec2.scale(desiredVelocity, desiredVelocity, scalar)
+    // find the point on the path nearest the predicted future position
+    const result = {
+        onPath: vec2.create(),
+        tangent: vec2.create(),
+        outside: 0.0
     }
 
-    vec2.subtract(out, desiredVelocity, boid.rigidBody.velocity)
+    Path.mapPointToPath(result, path, futurePosition)
 
-    Pool.free(desiredVelocity)
-    return out
-}
-
-
-// follow a path made up of an array or vectors
-function steerForFollowPath (out, boid, path, loop=false) {
-    const wayPoint = path.points[boid.steering.pathIndex]
-    if (!wayPoint) {
-        boid.steering.pathIndex = 0
-        return
+    if (result.outside < 0)
+    {
+        // our predicted future position was in the path, return zero steering.
+        return vec2.set(out, 0, 0)
     }
-
-    // do we really want sqaured?
-    //const pathThresholdSq = boid.steering.pathThreshold * boid.steering.pathThreshold
-    //if (vec2.squaredDistance(boid.transform.position, wayPoint) < pathThresholdSq) {
-    if (vec2.distance(boid.transform.position, wayPoint) < boid.steering.pathThreshold) {
-        if (boid.steering.pathIndex == path.pointCount - 1) {
-            if (loop)
-                boid.steering.pathIndex = 0
-        } else {
-            boid.steering.pathIndex++
-        }
-    }
-
-    if (boid.steering.pathIndex >= path.pointCount - 1 && !loop)
-        steerForArrival(out, boid, wayPoint)
     else
-        steerForSeek(out, boid, wayPoint)
+    {
+        // our predicted future position was outside the path, need to
+        // steer towards it.  Use onPath projection of futurePosition
+        // as seek target
+        if (window.annotatePathFollowing)
+            annotatePathFollowing(boid.transform.position, futurePosition, onPath, onPath, outside)
 
-    return out
+        return steerForSeek(out, boid, result.onPath)
+    }
+}
+
+
+function predictFuturePosition (out, boid, predictionTime) {
+    vec2.scale(out, boid.rigidBody.velocity, predictionTime)
+    return vec2.add(out, out, boid.transform.position)
+}
+
+
+// steerToFollowPath provides directed path following where the vehicle both stays on the path and
+// heads in a given direction along the path, as indicated by the direction argument which should be
+// either +1 or -1. The path defines a tube in terms of a spine and a radius, the goal is to keep a
+// vehicle headed toward a point inside that tube.
+export function steerForFollowPath (out, boid, path, direction, predictionTime, loop=false) {
+
+    // our goal will be offset from our path distance by this amount
+    const pathDistanceOffset = direction * predictionTime * vec2.length(boid.rigidBody.velocity)
+
+    // predict our future position
+    const futurePosition = predictFuturePosition(vec2.create(), boid, predictionTime)
+    
+    // measure distance along path of our current and predicted positions
+    const nowPathDistance = Path.mapPointToPathDistance(path, boid.transform.position)
+
+    const futurePathDistance = Path.mapPointToPathDistance(path, futurePosition)
+
+    // are we facing in the correction direction?
+    const rightway = (pathDistanceOffset > 0) ?
+                           (nowPathDistance < futurePathDistance) :
+                           (nowPathDistance > futurePathDistance)
+
+    // find the point on the path nearest the predicted future position
+    const result = {
+        onPath: vec2.create(),
+        tangent: vec2.create(),
+        outside: 0.0
+    }
+
+    Path.mapPointToPath(result, path, futurePosition)
+
+    // no steering is required if (a) our future position is inside
+    // the path tube and (b) we are facing in the correct direction
+    if ((result.outside < 0) && rightway)
+    {
+        return vec2.set(out, 0, 0) // all is well, return zero steering
+    }
+    else
+    {
+        // otherwise we need to steer towards a target point obtained
+        // by adding pathDistanceOffset to our current path position
+
+        const targetPathDistance = nowPathDistance + pathDistanceOffset
+        const target = Path.mapPathDistanceToPoint(vec2.create(), path, targetPathDistance)
+
+        if (window.annotatePathFollowing)
+            annotatePathFollowing(boid.transform.position, futurePosition, result.onPath, target, result.outside)
+
+        //console.log('tgt:', target, 'tpd:', targetPathDistance)
+
+        // return steering to seek target on path
+        return steerForSeek(out, boid, target)
+    }
+}
+
+
+// steer away from targetVec
+export function steerForFlee (out, fleeingBoid, targetVec) {
+    vec2.subtract(_desiredVelocity, fleeingBoid.aabb.position, targetVec)
+    return vec2.subtract(out, _desiredVelocity, fleeingBoid.rigidBody.velocity)
+}
+
+
+export function xxxSteerForFlee (out, fleeingBoid, targetVec) {
+    vec2.subtract(_offset, fleeingBoid.aabb.position, targetVec)
+    vec2Truncate(_desiredVelocity, _offset, boid.rigidBody.maxSpeed)
+    return vec2.subtract(out, _desiredVelocity, fleeingBoid.rigidBody.velocity)
 }
 
 
 // steer away from neighbors
-function steerForSeparation (out, boid, maxDistance, boidFieldOfView, flock) {
+export function steerForSeparation (out, boid, maxDistance, boidFieldOfView, flock) {
     // steering accumulator and count of neighbors, both initially zero
     vec2.set(out, 0, 0)
     let neighbors = 0
@@ -298,7 +345,8 @@ function steerForCohesion (out, boid, maxDistance, boidFieldOfView, flock) {
 
 
 // group of boids loosely move together
-function steerForFlock (out, boid, flock) {
+// from plugins/Boids.cpp
+export function steerForFlock (out, boid, flock) {
     const separationRadius =  50.0
     //const separationAngle  = -0.707
     const separationFieldOfView = 135
@@ -333,122 +381,9 @@ function steerForFlock (out, boid, flock) {
 }
 
 
-// wander around, changing angle by a limited amount each tick
-function steerForWander (out, boid, random=defaultRng) {
-    const center = Pool.malloc()
-    vec2.normalize(center, boid.rigidBody.velocity)
-    vec2.scale(center, center, boid.steering.wanderDistance)
-
-    const offset = Pool.malloc(boid.steering.wanderRadius, 0)
-    vec2.rotate(offset, offset, ORIGIN, boid.steering.wanderAngle)
-
-    boid.steering.wanderAngle += random() * boid.steering.wanderRange - boid.steering.wanderRange * 0.5
-
-    vec2.add(out, center, offset)
-    
-    Pool.free(offset)
-    Pool.free(center)
-
-    return out
-}
 
 
-// look at velocity of target boid and try to predict where it's going with the aim of catching it
-function steerForPursuit (out, pursuerBoid, targetPosition, targetVelocity) {
-
-    const maxSpeedSq = pursuerBoid.rigidBody.maxSpeed * pursuerBoid.rigidBody.maxSpeed
-    const lookAheadTime = vec2.squaredDistance(pursuerBoid.aabb.position, targetPosition) / maxSpeedSq
-
-    const scaledVelocity = Pool.malloc()
-    vec2.scale(scaledVelocity, targetVelocity, lookAheadTime)
-
-    const predictedTarget = Pool.malloc()
-
-    vec2.add(predictedTarget, targetPosition, scaledVelocity)
-
-    steerForSeek(out, pursuerBoid, predictedTarget)
-
-    Pool.free(scaledVelocity)
-    Pool.free(predictedTarget)
-
-    return out
-}
-
-
-// steer away from targetVec
-function steerForFlee (out, fleeingBoid, targetVec) {
-    const desiredVelocity = Pool.malloc()
-    vec2.subtract(desiredVelocity, targetVec, fleeingBoid.aabb.position)
-    vec2.normalize(desiredVelocity, desiredVelocity)
-    vec2.scale(desiredVelocity, desiredVelocity, fleeingBoid.rigidBody.maxSpeed)
-
-    vec2.subtract(out, desiredVelocity, fleeingBoid.rigidBody.velocity)
-    vec2.negate(out, out)
-    
-    Pool.free(desiredVelocity)
-
-    return out
-}
-
-
-// look at velocity of boid and try to predict where it's going
-// @param Object menaceBoid the boid to evade
-function steerForEvasion (out, evadingBoid, menaceBoid) {
-    const maxSpeedSq = evadingBoid.rigidBody.maxSpeed * evadingBoid.rigidBody.maxSpeed
-    const lookAheadTime = vec2.squaredDistance(evadingBoid.aabb.position, menaceBoid.aabb.position) / maxSpeedSq
-
-    const scaledVelocity = Pool.malloc()
-    vec2.scale(scaledVelocity, menaceBoid.rigidBody.velocity, lookAheadTime)
-
-    const predictedTarget = Pool.malloc()
-    vec2.add(predictedTarget, menaceBoid.aabb.position, scaledVelocity)
-
-    steerForFlee(out, evadingBoid, predictedTarget)
-
-    Pool.free(scaledVelocity)
-    Pool.free(predictedTarget)
-
-    return out
-}
-
-
-// http://gamedevelopment.tutsplus.com/tutorials/understanding-steering-behaviors-leader-following--gamedev-10810
-function steerForFollowLeader (out, boid, leader, boids) {
-    // Calculate the ahead point
-    const tv = vec2.normalize(Pool.malloc(), leader.rigidBody.velocity)
-    vec2.scale(tv, tv, boid.steering.leaderBehindDistance)
-
-    const ahead = vec2.add(Pool.malloc(), leader.aabb.position, tv)
-
-    // Calculate the behind point
-    vec2.negate(tv, tv)
-    const behind = vec2.add(Pool.malloc(), leader.aabb.position, tv)
-
-    // If the character is on the leader's sight, add a force
-    // to evade the route immediately.
-    const maxDistSq = boid.steering.leaderSightRadius * boid.steering.leaderSightRadius
-    const isOnLeaderSight = vec2.squaredDistance(boid.aabb.position, ahead) <= maxDistSq || vec2.squaredDistance(leader.aabb.position, boid.aabb.position) <= maxDistSq
-
-    if (isOnLeaderSight)
-        steerForEvasion(out, boid, leader)
-
-    // Creates a force to arrive at the behind point
-    const tmp1 = steerForArrival(Pool.malloc(), boid, behind)
-
-    // Add separation force
-    const tmp2 = steerForFlock(Pool.malloc(), boid, boids)
-
-    vec2.add(out, out, tmp1)
-    vec2.add(out, out, tmp2)
-
-    Pool.free(ahead)
-    Pool.free(tv)
-    Pool.free(behind)
-    Pool.free(tmp1)
-    Pool.free(tmp2)
-
-    return out
-}
+// TODO: evaluate all the functions below this line and figure out if they belong in arcade or vehicle
 
 
 // http://gamedevelopment.tutsplus.com/tutorials/understanding-steering-behaviors-queue--gamedev-14365
@@ -563,36 +498,4 @@ function _getNeighborAhead (boid, neighbors) {
     Pool.free(ahead)
     Pool.free(qa)
     return result
-}
-
-
-// is boid close enough to be in sight and facing
-function _inSight (lookingBoid, boid) {
-    if (vec2.distance(lookingBoid.aabb.position, boid.aabb.position) > lookingBoid.steering.maxDistance)
-        return false
-
-    const heading = vec2.normalize(Pool.malloc(), lookingBoid.rigidBody.velocity)
-
-    const difference = vec2.subtract(Pool.malloc(), boid.aabb.position, lookingBoid.aabb.position)
-
-    const dotProd = vec2.dot(difference, heading)
-
-    Pool.free(heading)
-    Pool.free(difference)
-
-    return dotProd >= 0
-}
-
-
-export default {
-    createSteeringComponent,
-
-    applySteeringForce,
-    steerForSeparation,
-    steerForAlignment,
-    steerForCohesion,
-    steerForFlock,
-
-    steerForArrival, steerForEvasion, steerForFlee, steerForFollowLeader, steerForFollowPath,
-    steerForPursuit, steerForQueueing, steerForSeek, steerForWander, steerForCollisionAvoidance
 }

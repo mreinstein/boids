@@ -15,7 +15,7 @@ const tmpSegDistance = {
 // a simple implementation of the Pathway protocol.  The path is a "polyline" a series of line
 // segments between specified points.  A radius defines a volume for the path which is the union
 // of a sphere at each point and a cylinder along each segment.
-function createPolylinePath (options={}) {
+function create (options={}) {
     // construct a PolylinePathway given the number of points (vertices),
     // an array of points, and a path radius.
     let { points, pointCount, radius, cyclic } = options
@@ -148,4 +148,4 @@ function mapPathDistanceToPoint (out, path, pathDistance) {
 
 
 
-export default { createPolylinePath, mapPointToPath, mapPointToPathDistance, mapPathDistanceToPoint }
+export default { create, mapPointToPath, mapPointToPathDistance, mapPathDistanceToPoint }

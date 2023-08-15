@@ -17,9 +17,26 @@ So here we are.
 
 ## usage
 
+There are 2 separate steering implementations:
+
+* **Arcade Steering** is velocity only. no acceleration. This tends to work well for units that are moved using arcade physics, with snappy velocity changes
+* **Vehicle Steering** uses velocity and acceleration. It is smoothed motion, and works well for vehicles which tend to accelerate/deccelerate more gradually than arcade units.
+
+The vehicle steering is adapted from OpenSteer, and the arcade steering is adapted from Ian McGregor's open source module.
+Hence the differences in available steering behaviors
+
+
+TODO: put a table here showing which implementations support which steering behaviors
+
+| function  |  vehicle | arcade |
+| --------------------------------- | ---------------------------------------- | ---------------------------------------- |
+| blah                              |   yes                                    |    no                                    |
+
+
+
 ```javascript
-import Boids    from 'https://cdn.jsdelivr.net/gh/mreinstein/boids/boids.js'
-import { vec2 } from 'https://cdn.skypack.dev/pin/gl-matrix@v3.4.3-OSmwlRYK5GW1unkuAQkN/mode=imports,min/optimized/gl-matrix.js'
+import * as Boids from 'https://cdn.jsdelivr.net/gh/mreinstein/boids/src/steering-arcade.js'
+import { vec2 }   from 'https://cdn.skypack.dev/pin/gl-matrix@v3.4.3-OSmwlRYK5GW1unkuAQkN/mode=imports,min/optimized/gl-matrix.js'
 
 
 const position = [ 50, 50 ]
