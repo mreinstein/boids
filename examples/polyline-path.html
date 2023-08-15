@@ -1,0 +1,210 @@
+<!doctype html>
+<html>
+<head>
+    <title>Polyline Path Example</title>
+    <meta name=theme-color content=#303F9F><meta name=viewport content="width=device-width,minimum-scale=1">
+    <style>
+        body {
+          font-family: -apple-system, BlinkMacSystemFont,
+    “Segoe UI”, “Roboto”, “Oxygen”,
+    “Ubuntu”, “Cantarell”, “Fira Sans”,
+    “Droid Sans”, “Helvetica Neue”, sans-serif;;
+          font-size: 1.3em;
+          background-color: white;
+          text-align: center;
+          padding: 60px 0px;
+          width:  450px;
+          margin: 0px auto;
+        }
+
+        canvas {
+            padding: 0px;
+            border:  1px solid #cacaca;
+        }
+
+        section {
+             padding-bottom:  30px;
+        }
+
+    </style>
+</head>
+<body>
+
+<h1>Polyline Path Examples</h1>
+
+<h2>mapPointToPath, mapPointToPathDistance</h2>
+
+<canvas width="400" height="240"></canvas>
+
+<section>
+    <p><span style="color: #aaa;">Total path length:</span> <span class="pathLength"></span></p>
+    <p><span style="color: orange">Mouse position:</span> <span id="cursor"></span></p>
+    <p><span style="color: deeppink">Point on path:</span> <span id="pointOnPath"></span></p>
+    <p><span style="color: deeppink">Distance along path:</span> <span id="pathDistance"></span></p>
+    <p><span style="color: #aaa;">Distance outside path:</span> <span id="outside"></span></p>
+</section>
+
+<h2>mapPathDistanceToPoint</h2>
+<canvas width="400" height="240"></canvas>
+<section>
+    <p><span style="color: #aaa;">Total path length:</span> <span class="pathLength"></span></p>
+    <p><span style="color: #aaa;">Path distance:</span> <input type="range" min="0" max="100" value="0"/> <span id="d">0</span></p>
+    <p><span style="color: deeppink">Point at distance</span> <span id="tmp2"></span> :  <span id="pd"></span></p>
+</section>
+
+<script type="module">
+import PolylinePath  from '../src/polyline-path.js'
+import segmentNormal from 'https://cdn.jsdelivr.net/gh/mreinstein/collision-2d/src/segment-normal.js'
+import * as vec2     from 'https://cdn.jsdelivr.net/npm/gl-matrix@3/esm/vec2.js'
+
+
+function drawPathTube (path, canvas, context) {
+    context.fillStyle = '#ccc'
+    for (const pt of path.points) {
+        context.beginPath()
+        context.arc(pt[0], pt[1], path.radius, 0, 2 * Math.PI, true)
+        context.closePath()
+        context.fill()
+    }
+
+    // draw oriented boxes to connect the end caps
+    for (let i=1; i < path.pointCount; i++) {
+        const p0 = path.points[i-1]
+        const p1 = path.points[i]
+
+        const normal = [ 0, 0 ]
+
+        context.beginPath()
+
+        segmentNormal(normal, p0, p1)
+        vec2.scale(normal, normal, path.radius)
+
+        context.moveTo(p0[0] + normal[0], p0[1] + normal[1])
+        context.lineTo(p1[0] + normal[0], p1[1] + normal[1])
+        vec2.scale(normal, normal, -1)
+        context.lineTo(p1[0] + normal[0], p1[1] + normal[1])
+        context.lineTo(p0[0] + normal[0], p0[1] + normal[1])
+
+        vec2.scale(normal, normal, -1)
+        context.lineTo(p0[0] + normal[0], p0[1] + normal[1])
+
+        context.closePath()
+        context.fill()
+    }
+}
+
+
+function drawPath (path, canvas, context) {
+    context.beginPath()
+    context.strokeStyle = '#333'
+    for (let i=1; i < path.pointCount; i++) {
+        const p0 = path.points[i-1]
+        const p1 = path.points[i]
+        context.moveTo(p0[0]+ 0.5, p0[1] + 0.5)
+        context.lineTo(p1[0] + 0.5, p1[1] + 0.5)
+    }
+
+    context.closePath()
+    context.stroke()
+
+    context.fillStyle = 'dodgerblue'
+    for (const pt of path.points) {
+        context.fillRect(pt[0]-2, pt[1]-2, 4, 4)
+    }
+}
+
+
+function draw (canvas, context) {
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    drawPathTube(p, canvas, context)
+    drawPath(p, canvas, context)
+
+    if (tmpPointToPath && context !== context2) {
+        context.fillStyle = 'deeppink'
+        context.fillRect(tmpPointToPath.onPath[0]-2, tmpPointToPath.onPath[1]-2, 4, 4)
+    }
+
+    context.fillStyle = 'orange'
+    if (context !== context2)
+        context.fillRect(point[0]-2, point[1]-2, 4, 4)
+
+    context.fillStyle = 'deeppink'
+    if (distPoint && context === context2)
+        context.fillRect(distPoint[0]-2, distPoint[1]-2, 4, 4)
+}
+
+
+const [ canvas, canvas2 ] = document.querySelectorAll('canvas')
+const context = canvas.getContext('2d')
+const context2 = canvas2.getContext('2d')
+
+const point = [ 0, 0 ]
+const point2 = [ 0, 0 ]
+
+let tmpPointToPath, currentDist = 0
+const distPoint = [ 0, 0 ]
+
+const p = PolylinePath.create({
+    cyclic: false,
+    radius: 8,
+    points: [
+        [ 51, 111 ],
+        [ 113, 174 ],
+        [ 211, 61 ],
+        [ 268, 108 ],
+        [ 321, 65 ],
+        [ 379, 69 ]
+    ], 
+    pointCount: 6
+})
+
+document.querySelector('input').setAttribute('max', p.totalPathLength)
+
+
+function updateStats (path) {
+    if (!tmpPointToPath) {
+        tmpPointToPath = {
+            onPath: [ 0, 0 ],
+            tangent: [ 0, 0 ],
+            outside: 0  // how far outside of the path this point is. negative value means within path
+        }
+    }
+    PolylinePath.mapPointToPath(tmpPointToPath, p, point)
+
+    for (const a of document.querySelectorAll('.pathLength'))
+        a.innerText = `${Math.round(p.totalPathLength)}`
+    document.querySelector('#cursor').innerText = `x: ${point[0]}, y: ${point[1]}`
+    document.querySelector('#pointOnPath').innerText = `${Math.round(tmpPointToPath.onPath[0])}, ${Math.round(tmpPointToPath.onPath[1])}`
+    document.querySelector('#pathDistance').innerText = `${Math.round(PolylinePath.mapPointToPathDistance(p, point))}`
+
+    document.querySelector('#outside').innerText = `${Math.round(tmpPointToPath.outside)} (${tmpPointToPath.outside < 0 ? 'inside' : 'outside'} path)`
+
+
+    PolylinePath.mapPathDistanceToPoint(distPoint, p, currentDist)
+    document.querySelector('#d').innerText = currentDist
+    document.querySelector('#tmp2').innerText = currentDist
+    document.querySelector('#pd').innerText = `[ ${Math.round(distPoint[0])}, ${Math.round(distPoint[1])} ]`
+}
+
+
+canvas.addEventListener('mousemove', function (ev) {
+    vec2.set(point, ev.offsetX, ev.offsetY)
+    updateStats(p)
+    draw(canvas, context)
+})
+
+document.querySelector('input').oninput = function (ev) {
+    currentDist = this.value
+    updateStats(p)
+    draw(canvas2, context2)
+}
+
+
+updateStats(p)
+draw(canvas, context)
+draw(canvas2, context2)
+
+</script>
+
+</body>
+</html>
