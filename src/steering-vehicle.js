@@ -173,6 +173,12 @@ export function steerToStayOnPath (out, boid, path, predictionTime) {
 }
 
 
+export function steerForSeek (out, boid, target) {
+    vec2.subtract(_desiredVelocity, target, boid.transform.position)
+    return vec2.subtract(out, _desiredVelocity, boid.rigidBody.velocity)
+}
+
+
 function predictFuturePosition (out, boid, predictionTime) {
     vec2.scale(out, boid.rigidBody.velocity, predictionTime)
     return vec2.add(out, out, boid.transform.position)
