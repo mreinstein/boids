@@ -73,8 +73,8 @@ export function createSteeringComponent (options={}) {
         leaderBehindDistance: 32,
         leaderSightRadius: 200,
 
-        // path follow
-        pathIndex: 0,
+        // path follow - which segment on the current path we're aiming for. -1 means no path
+        pathIndex: -1,
 
         // queueing
         maxQueueAhead: 40,
