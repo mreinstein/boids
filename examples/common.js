@@ -91,7 +91,8 @@ export function drawTarget (target, context) {
 
 export function drawPathTube (path, canvas, context) {
     context.fillStyle = '#ccc'
-    for (const pt of path.points) {
+    for (let i=0; i < path.pointCount; i++) {
+        const pt = path.points[i]
         context.beginPath()
         context.arc(pt[0], pt[1], path.radius, 0, 2 * Math.PI, true)
         context.closePath()
