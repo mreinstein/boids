@@ -180,8 +180,7 @@ export function steerForSeek (out, boid, target) {
 
 
 function predictFuturePosition (out, boid, predictionTime) {
-    vec2.scale(out, boid.rigidBody.velocity, predictionTime)
-    return vec2.add(out, out, boid.transform.position)
+    return vec2.scaleAndAdd(out, boid.transform.position, boid.rigidBody.velocity, predictionTime)
 }
 
 
@@ -232,8 +231,6 @@ export function steerForFollowPath (out, boid, path, direction, predictionTime, 
 
         if (window.annotatePathFollowing)
             annotatePathFollowing(boid.transform.position, futurePosition, result.onPath, target, result.outside)
-
-        //console.log('tgt:', target, 'tpd:', targetPathDistance)
 
         // return steering to seek target on path
         return steerForSeek(out, boid, target)
